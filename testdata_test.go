@@ -18,14 +18,6 @@ func TestTestData(t *testing.T) {
 		require.EqualValues(t, expected, actual)
 	})
 
-	t.Run("string missing file", func(t *testing.T) {
-		type TestCase struct {
-			Input string `testdata:"does-not-exist"`
-		}
-		var actual TestCase
-		require.Error(t, TestData("testdata/text", &actual))
-	})
-
 	t.Run("bytes", func(t *testing.T) {
 		type TestCase struct {
 			Input []byte `testdata:"input.txt"`
@@ -36,98 +28,89 @@ func TestTestData(t *testing.T) {
 		require.EqualValues(t, expected, actual)
 	})
 
-	t.Run("bytes missing file", func(t *testing.T) {
-		type TestCase struct {
-			Input []byte `testdata:"does-not-exist"`
-		}
-		var actual TestCase
-		require.Error(t, TestData("testdata/text", &actual))
+	t.Run("json", func(t *testing.T) {
+		t.Run("raw", func(t *testing.T) {
+			type TestCase struct {
+				Input json.RawMessage `testdata:"input.json"`
+			}
+			var actual TestCase
+			require.NoError(t, TestData("testdata/json", &actual))
+			expected := TestCase{json.RawMessage("{\n  \"hello\": \"world\"\n}")}
+			require.EqualValues(t, expected, actual)
+		})
+
+		t.Run("map", func(t *testing.T) {
+			type TestCase struct {
+				Input map[string]interface{} `testdata:"input.json"`
+			}
+			var actual TestCase
+			require.NoError(t, TestData("testdata/json", &actual))
+			expected := TestCase{map[string]interface{}{"hello": "world"}}
+			require.EqualValues(t, expected, actual)
+		})
+
+		t.Run("interface", func(t *testing.T) {
+			type TestCase struct {
+				Input interface{} `testdata:"input.json"`
+			}
+			var actual TestCase
+			require.NoError(t, TestData("testdata/json", &actual))
+			expected := TestCase{map[string]interface{}{"hello": "world"}}
+			require.EqualValues(t, expected, actual)
+		})
+
+		t.Run("struct", func(t *testing.T) {
+			type TestCase struct {
+				Input struct {
+					Hello string `json:"hello"`
+				} `testdata:"input.json"`
+			}
+			var actual TestCase
+			require.NoError(t, TestData("testdata/json", &actual))
+			expected := TestCase{
+				Input: struct {
+					Hello string `json:"hello"`
+				}{
+					Hello: "world",
+				},
+			}
+			require.EqualValues(t, expected, actual)
+		})
+
+		t.Run("invalid", func(t *testing.T) {
+			type TestCase struct {
+				Input map[string]interface{} `testdata:"invalid.json"`
+			}
+			var actual TestCase
+			require.Error(t, TestData("testdata/json", &actual))
+		})
 	})
 
-	t.Run("raw json", func(t *testing.T) {
+	t.Run("multiple", func(t *testing.T) {
 		type TestCase struct {
-			Input json.RawMessage `testdata:"input.json"`
+			A string `testdata:"a.txt"`
+			B []byte `testdata:"b.txt"`
 		}
 		var actual TestCase
-		require.NoError(t, TestData("testdata/json", &actual))
-		expected := TestCase{json.RawMessage("{\n  \"hello\": \"world\"\n}")}
+		require.NoError(t, TestData("testdata/multiple", &actual))
+		expected := TestCase{"A", []byte("B")}
 		require.EqualValues(t, expected, actual)
-	})
-
-	t.Run("json map", func(t *testing.T) {
-		type TestCase struct {
-			Input map[string]interface{} `testdata:"input.json"`
-		}
-		var actual TestCase
-		require.NoError(t, TestData("testdata/json", &actual))
-		expected := TestCase{map[string]interface{}{"hello": "world"}}
-		require.EqualValues(t, expected, actual)
-	})
-
-	t.Run("json map missing file", func(t *testing.T) {
-		type TestCase struct {
-			Input map[string]interface{} `testdata:"does-not-exist"`
-		}
-		var actual TestCase
-		require.Error(t, TestData("testdata/text", &actual))
-	})
-
-	t.Run("json interface", func(t *testing.T) {
-		type TestCase struct {
-			Input interface{} `testdata:"input.json"`
-		}
-		var actual TestCase
-		require.NoError(t, TestData("testdata/json", &actual))
-		expected := TestCase{map[string]interface{}{"hello": "world"}}
-		require.EqualValues(t, expected, actual)
-	})
-
-	t.Run("json interface invalid", func(t *testing.T) {
-		type TestCase struct {
-			Input interface{} `testdata:"invalid.json"`
-		}
-		var actual TestCase
-		require.Error(t, TestData("testdata/json", &actual))
-	})
-
-	t.Run("json interface missing file", func(t *testing.T) {
-		type TestCase struct {
-			Input interface{} `testdata:"does-not-exist"`
-		}
-		var actual TestCase
-		require.Error(t, TestData("testdata/json", &actual))
-	})
-
-	t.Run("json invalid", func(t *testing.T) {
-		type TestCase struct {
-			Input map[string]interface{} `testdata:"invalid.json"`
-		}
-		var actual TestCase
-		require.Error(t, TestData("testdata/json", &actual))
-	})
-
-	t.Run("unsupported slice element type", func(t *testing.T) {
-		type TestCase struct {
-			Input []bool `testdata:"input.txt"`
-		}
-		var actual TestCase
-		require.Error(t, TestData("testdata/text", &actual))
-	})
-
-	t.Run("unsupported field type", func(t *testing.T) {
-		type TestCase struct {
-			Input bool `testdata:"input.txt"`
-		}
-		var actual TestCase
-		require.Error(t, TestData("testdata/text", &actual))
 	})
 
 	t.Run("nil", func(t *testing.T) {
-		require.NoError(t, TestData("testdata/text", nil))
+		require.Error(t, TestData("testdata/text", nil))
 	})
 
-	t.Run("not pointer", func(t *testing.T) {
+	t.Run("non-pointer", func(t *testing.T) {
 		require.Error(t, TestData("testdata/text", struct{}{}))
+	})
+
+	t.Run("missing file", func(t *testing.T) {
+		type TestCase struct {
+			Input string `testdata:"does-not-exist"`
+		}
+		var actual TestCase
+		require.Error(t, TestData("testdata/text", &actual))
 	})
 
 	t.Run("missing struct tag", func(t *testing.T) {
