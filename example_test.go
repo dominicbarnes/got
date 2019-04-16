@@ -3,20 +3,21 @@ package got_test
 import (
 	"log"
 	"strings"
+	"testing"
 
 	"github.com/dominicbarnes/got"
 )
 
 func ExampleTestData() {
+	t := new(testing.T)
+
 	type TestCase struct {
 		Input    string `testdata:"input.txt"`
 		Expected string `testdata:"expected.txt"`
 	}
 
 	var testcase TestCase
-	if err := got.TestData("testdata/text", &testcase); err != nil {
-		log.Fatal(err)
-	}
+	got.TestData(t, "testdata/text", &testcase)
 
 	actual := strings.ToUpper(testcase.Input)
 	if actual != testcase.Expected {

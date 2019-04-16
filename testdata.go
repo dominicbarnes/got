@@ -2,8 +2,6 @@ package got
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -13,35 +11,41 @@ const tagName = "testdata"
 
 // TestData extracts the contents of a directory into an annotated struct, using
 // the "testdata" struct tag for configuration.
-
+//
 // The struct tag currently only supports passing a filename, but this will
 // likely be expanded on in future versions.
-func TestData(dir string, out interface{}) (err error) {
+func TestData(t TestingT, dir string, out interface{}) {
+	t.Helper()
+
 	if out == nil {
-		return errors.New("cannot use nil")
+		t.Fatal("output cannot be nil")
+		return
 	}
 
 	if k := reflect.TypeOf(out).Kind(); k != reflect.Ptr {
-		return fmt.Errorf("pointer value required, got %s", k)
+		t.Fatalf("output must be pointer value, instead got %s", k)
+		return
 	}
 
-	t := reflect.TypeOf(out).Elem()
-	v := reflect.ValueOf(out).Elem()
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
+	typ := reflect.TypeOf(out).Elem()
+	val := reflect.ValueOf(out).Elem()
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
 		tag := field.Tag.Get(tagName)
 
 		if tag == "" || tag == "-" {
 			continue
 		}
 
+		t.Logf("%s: reading file %s", field.Name, tag)
 		data, err := ioutil.ReadFile(filepath.Join(dir, tag))
 		if err != nil {
-			return err
+			t.Fatalf("%s: failed to read file: %s", field.Name, err.Error())
+			return
 		}
 
 		if field.Type.Kind() == reflect.String {
-			v.Field(i).SetString(string(data))
+			val.Field(i).SetString(string(data))
 			continue
 		}
 
@@ -49,13 +53,12 @@ func TestData(dir string, out interface{}) (err error) {
 		case ".json":
 			x := reflect.New(field.Type).Interface()
 			if err := json.Unmarshal(data, x); err != nil {
-				return err
+				t.Fatalf("%s: failed to parse %s", field.Name, tag)
+				return
 			}
-			v.Field(i).Set(reflect.ValueOf(x).Elem())
+			val.Field(i).Set(reflect.ValueOf(x).Elem())
 		default:
-			v.Field(i).Set(reflect.ValueOf(data))
+			val.Field(i).Set(reflect.ValueOf(data))
 		}
 	}
-
-	return nil
 }
