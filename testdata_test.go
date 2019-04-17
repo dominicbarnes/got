@@ -18,7 +18,7 @@ func TestTestData(t *testing.T) {
 
 		mockt := NewMockTestingT(ctrl)
 		mockt.EXPECT().Helper()
-		mockt.EXPECT().Logf("%s: reading file %s", "Input", "input.txt")
+		mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/text/input.txt")
 
 		type TestCase struct {
 			Input string `testdata:"input.txt"`
@@ -35,7 +35,7 @@ func TestTestData(t *testing.T) {
 
 		mockt := NewMockTestingT(ctrl)
 		mockt.EXPECT().Helper()
-		mockt.EXPECT().Logf("%s: reading file %s", "Input", "input.txt")
+		mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/text/input.txt")
 
 		type TestCase struct {
 			Input []byte `testdata:"input.txt"`
@@ -53,7 +53,7 @@ func TestTestData(t *testing.T) {
 
 			mockt := NewMockTestingT(ctrl)
 			mockt.EXPECT().Helper()
-			mockt.EXPECT().Logf("%s: reading file %s", "Input", "input.json")
+			mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/json/input.json")
 
 			type TestCase struct {
 				Input json.RawMessage `testdata:"input.json"`
@@ -70,7 +70,7 @@ func TestTestData(t *testing.T) {
 
 			mockt := NewMockTestingT(ctrl)
 			mockt.EXPECT().Helper()
-			mockt.EXPECT().Logf("%s: reading file %s", "Input", "input.json")
+			mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/json/input.json")
 
 			type TestCase struct {
 				Input map[string]interface{} `testdata:"input.json"`
@@ -87,7 +87,7 @@ func TestTestData(t *testing.T) {
 
 			mockt := NewMockTestingT(ctrl)
 			mockt.EXPECT().Helper()
-			mockt.EXPECT().Logf("%s: reading file %s", "Input", "input.json")
+			mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/json/input.json")
 
 			type TestCase struct {
 				Input interface{} `testdata:"input.json"`
@@ -104,7 +104,7 @@ func TestTestData(t *testing.T) {
 
 			mockt := NewMockTestingT(ctrl)
 			mockt.EXPECT().Helper()
-			mockt.EXPECT().Logf("%s: reading file %s", "Input", "input.json")
+			mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/json/input.json")
 
 			type TestCase struct {
 				Input struct {
@@ -129,8 +129,8 @@ func TestTestData(t *testing.T) {
 
 			mockt := NewMockTestingT(ctrl)
 			mockt.EXPECT().Helper()
-			mockt.EXPECT().Logf("%s: reading file %s", "Input", "invalid.json")
-			mockt.EXPECT().Fatalf("%s: failed to parse %s", "Input", "invalid.json")
+			mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/json/invalid.json")
+			mockt.EXPECT().Fatalf("%s: failed to parse %s as JSON", "Input", "testdata/json/invalid.json")
 
 			type TestCase struct {
 				Input map[string]interface{} `testdata:"invalid.json"`
@@ -146,8 +146,8 @@ func TestTestData(t *testing.T) {
 
 		mockt := NewMockTestingT(ctrl)
 		mockt.EXPECT().Helper()
-		mockt.EXPECT().Logf("%s: reading file %s", "A", "a.txt")
-		mockt.EXPECT().Logf("%s: reading file %s", "B", "b.txt")
+		mockt.EXPECT().Logf("%s: reading file %s", "A", "testdata/multiple/a.txt")
+		mockt.EXPECT().Logf("%s: reading file %s", "B", "testdata/multiple/b.txt")
 
 		type TestCase struct {
 			A string `testdata:"a.txt"`
@@ -187,7 +187,7 @@ func TestTestData(t *testing.T) {
 
 		mockt := NewMockTestingT(ctrl)
 		mockt.EXPECT().Helper()
-		mockt.EXPECT().Logf("%s: reading file %s", "Input", "does-not-exist")
+		mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/text/does-not-exist")
 		mockt.EXPECT().Fatalf("%s: failed to read file: %s", "Input", "open testdata/text/does-not-exist: no such file or directory")
 
 		type TestCase struct {

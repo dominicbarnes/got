@@ -37,8 +37,9 @@ func TestData(t TestingT, dir string, out interface{}) {
 			continue
 		}
 
-		t.Logf("%s: reading file %s", field.Name, tag)
-		data, err := ioutil.ReadFile(filepath.Join(dir, tag))
+		file := filepath.Join(dir, tag)
+		t.Logf("%s: reading file %s", field.Name, file)
+		data, err := ioutil.ReadFile(file)
 		if err != nil {
 			t.Fatalf("%s: failed to read file: %s", field.Name, err.Error())
 			return
@@ -53,7 +54,7 @@ func TestData(t TestingT, dir string, out interface{}) {
 		case ".json":
 			x := reflect.New(field.Type).Interface()
 			if err := json.Unmarshal(data, x); err != nil {
-				t.Fatalf("%s: failed to parse %s", field.Name, tag)
+				t.Fatalf("%s: failed to parse %s as JSON", field.Name, file)
 				return
 			}
 			val.Field(i).Set(reflect.ValueOf(x).Elem())
