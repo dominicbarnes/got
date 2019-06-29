@@ -55,10 +55,11 @@ func TestData(t TestingT, dir string, out interface{}) {
 		if err != nil {
 			if tag.HasOption("optional") {
 				t.Logf("%s: failed to read optional file: %s", field.Name, err.Error())
+				continue
 			} else {
 				t.Fatalf("%s: failed to read file: %s", field.Name, err.Error())
+				return
 			}
-			return
 		}
 
 		if field.Type.Kind() == reflect.String {
