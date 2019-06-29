@@ -130,7 +130,7 @@ func TestTestData(t *testing.T) {
 			mockt := NewMockTestingT(ctrl)
 			mockt.EXPECT().Helper()
 			mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/json/invalid.json")
-			mockt.EXPECT().Fatalf("%s: failed to parse %s as JSON", "Input", "testdata/json/invalid.json")
+			mockt.EXPECT().Fatalf("%s: failed to parse %s as JSON: %s", "Input", "testdata/json/invalid.json", "unexpected end of JSON input")
 
 			type TestCase struct {
 				Input map[string]interface{} `testdata:"invalid.json"`
