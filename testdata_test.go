@@ -197,6 +197,21 @@ func TestTestData(t *testing.T) {
 		TestData(mockt, "testdata/text", &actual)
 	})
 
+	t.Run("missing file optional", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockt := NewMockTestingT(ctrl)
+		mockt.EXPECT().Helper()
+		mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/text/does-not-exist")
+
+		type TestCase struct {
+			Input string `testdata:"does-not-exist,optional"`
+		}
+		var actual TestCase
+		TestData(mockt, "testdata/text", &actual)
+	})
+
 	t.Run("missing struct tag", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -236,6 +251,22 @@ func TestTestData(t *testing.T) {
 
 		type TestCase struct {
 			Missing string `testdata:"-"`
+		}
+		var actual TestCase
+		TestData(mockt, "testdata/text", &actual)
+		require.Empty(t, actual.Missing)
+	})
+
+	t.Run("invalid struct tag", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockt := NewMockTestingT(ctrl)
+		mockt.EXPECT().Helper()
+		mockt.EXPECT().Logf("failed to parse struct tags: %s", "bad syntax for struct tag value")
+
+		type TestCase struct {
+			Missing string `json:"missing-last-quote`
 		}
 		var actual TestCase
 		TestData(mockt, "testdata/text", &actual)

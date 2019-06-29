@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
+
+	"github.com/fatih/structtag"
 )
 
 const tagName = "testdata"
@@ -31,17 +33,29 @@ func TestData(t TestingT, dir string, out interface{}) {
 	val := reflect.ValueOf(out).Elem()
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
-		tag := field.Tag.Get(tagName)
 
-		if tag == "" || tag == "-" {
+		tags, err := structtag.Parse(string(field.Tag))
+		if err != nil {
+			t.Logf("failed to parse struct tags: %s", err.Error())
 			continue
 		}
 
-		file := filepath.Join(dir, tag)
+		tag, err := tags.Get(tagName)
+		if err != nil {
+			continue
+		}
+
+		if tag.Name == "" || tag.Name == "-" {
+			continue
+		}
+
+		file := filepath.Join(dir, tag.Name)
 		t.Logf("%s: reading file %s", field.Name, file)
 		data, err := ioutil.ReadFile(file)
 		if err != nil {
-			t.Fatalf("%s: failed to read file: %s", field.Name, err.Error())
+			if !tag.HasOption("optional") {
+				t.Fatalf("%s: failed to read file: %s", field.Name, err.Error())
+			}
 			return
 		}
 
@@ -50,7 +64,7 @@ func TestData(t TestingT, dir string, out interface{}) {
 			continue
 		}
 
-		switch filepath.Ext(tag) {
+		switch filepath.Ext(file) {
 		case ".json":
 			x := reflect.New(field.Type).Interface()
 			if err := json.Unmarshal(data, x); err != nil {
