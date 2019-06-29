@@ -138,6 +138,31 @@ func TestTestData(t *testing.T) {
 			var actual TestCase
 			TestData(mockt, "testdata/json", &actual)
 		})
+
+		t.Run("optional", func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockt := NewMockTestingT(ctrl)
+			mockt.EXPECT().Helper()
+			mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/json/input.json")
+
+			type TestCase struct {
+				Input struct {
+					Hello string `json:"hello"`
+				} `testdata:"input.json,optional"`
+			}
+			var actual TestCase
+			TestData(mockt, "testdata/json", &actual)
+			expected := TestCase{
+				Input: struct {
+					Hello string `json:"hello"`
+				}{
+					Hello: "world",
+				},
+			}
+			require.EqualValues(t, expected, actual)
+		})
 	})
 
 	t.Run("multiple", func(t *testing.T) {
@@ -204,6 +229,7 @@ func TestTestData(t *testing.T) {
 		mockt := NewMockTestingT(ctrl)
 		mockt.EXPECT().Helper()
 		mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/text/does-not-exist")
+		mockt.EXPECT().Logf("%s: failed to read optional file: %s", "Input", "open testdata/text/does-not-exist: no such file or directory")
 
 		type TestCase struct {
 			Input string `testdata:"does-not-exist,optional"`

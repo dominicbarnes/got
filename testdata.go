@@ -53,7 +53,9 @@ func TestData(t TestingT, dir string, out interface{}) {
 		t.Logf("%s: reading file %s", field.Name, file)
 		data, err := ioutil.ReadFile(file)
 		if err != nil {
-			if !tag.HasOption("optional") {
+			if tag.HasOption("optional") {
+				t.Logf("%s: failed to read optional file: %s", field.Name, err.Error())
+			} else {
 				t.Fatalf("%s: failed to read file: %s", field.Name, err.Error())
 			}
 			return
