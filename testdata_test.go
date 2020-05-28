@@ -2,9 +2,12 @@ package got_test
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	reflect "reflect"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -44,6 +47,23 @@ func TestLoadTestData(t *testing.T) {
 		LoadTestData(mockt, "testdata/text", &actual)
 		expected := TestCase{[]byte("hello world")}
 		require.EqualValues(t, expected, actual)
+	})
+
+	t.Run("file", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockt := NewMockTestingT(ctrl)
+		mockt.EXPECT().Helper()
+		mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/text/input.txt")
+
+		type TestCase struct {
+			Input *os.File `testdata:"input.txt"`
+		}
+		var actual TestCase
+		LoadTestData(mockt, "testdata/text", &actual)
+		spew.Dump(actual)
+		require.EqualValues(t, filepath.Join("testdata/text/input.txt"), actual.Input.Name())
 	})
 
 	t.Run("json", func(t *testing.T) {

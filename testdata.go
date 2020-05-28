@@ -3,6 +3,7 @@ package got
 import (
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 
@@ -10,6 +11,8 @@ import (
 )
 
 const tagName = "testdata"
+
+var osFileType = reflect.TypeOf(new(os.File))
 
 // LoadTestData extracts the contents of a directory into an annotated struct,
 // using the "testdata" struct tag for configuration.
@@ -51,32 +54,42 @@ func LoadTestData(t TestingT, dir string, out interface{}) {
 
 		file := filepath.Join(dir, tag.Name)
 		t.Logf("%s: reading file %s", field.Name, file)
-		data, err := ioutil.ReadFile(file)
-		if err != nil {
-			if tag.HasOption("optional") {
-				t.Logf("%s: failed to read optional file: %s", field.Name, err.Error())
+
+		if field.Type == osFileType {
+			f, err := os.Open(file)
+			if err != nil {
+				t.Fatalf("%s: failed to open file: %s", field.Name, err.Error())
+				return
+			}
+			val.Field(i).Set(reflect.ValueOf(f))
+		} else {
+			data, err := ioutil.ReadFile(file)
+			if err != nil {
+				if tag.HasOption("optional") {
+					t.Logf("%s: failed to read optional file: %s", field.Name, err.Error())
+					continue
+				} else {
+					t.Fatalf("%s: failed to read file: %s", field.Name, err.Error())
+					return
+				}
+			}
+
+			if field.Type.Kind() == reflect.String {
+				val.Field(i).SetString(string(data))
 				continue
-			} else {
-				t.Fatalf("%s: failed to read file: %s", field.Name, err.Error())
-				return
 			}
-		}
 
-		if field.Type.Kind() == reflect.String {
-			val.Field(i).SetString(string(data))
-			continue
-		}
-
-		switch filepath.Ext(file) {
-		case ".json":
-			x := reflect.New(field.Type).Interface()
-			if err := json.Unmarshal(data, x); err != nil {
-				t.Fatalf("%s: failed to parse %s as JSON: %s", field.Name, file, err.Error())
-				return
+			switch filepath.Ext(file) {
+			case ".json":
+				x := reflect.New(field.Type).Interface()
+				if err := json.Unmarshal(data, x); err != nil {
+					t.Fatalf("%s: failed to parse %s as JSON: %s", field.Name, file, err.Error())
+					return
+				}
+				val.Field(i).Set(reflect.ValueOf(x).Elem())
+			default:
+				val.Field(i).Set(reflect.ValueOf(data))
 			}
-			val.Field(i).Set(reflect.ValueOf(x).Elem())
-		default:
-			val.Field(i).Set(reflect.ValueOf(data))
 		}
 	}
 }
