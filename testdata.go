@@ -11,12 +11,12 @@ import (
 
 const tagName = "testdata"
 
-// TestData extracts the contents of a directory into an annotated struct, using
-// the "testdata" struct tag for configuration.
+// LoadTestData extracts the contents of a directory into an annotated struct,
+// using the "testdata" struct tag for configuration.
 //
 // The struct tag currently only supports passing a filename, but this will
 // likely be expanded on in future versions.
-func TestData(t TestingT, dir string, out interface{}) {
+func LoadTestData(t TestingT, dir string, out interface{}) {
 	t.Helper()
 
 	if out == nil {

@@ -11,7 +11,7 @@ import (
 	. "github.com/dominicbarnes/got"
 )
 
-func TestTestData(t *testing.T) {
+func TestLoadTestData(t *testing.T) {
 	t.Run("string", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -24,7 +24,7 @@ func TestTestData(t *testing.T) {
 			Input string `testdata:"input.txt"`
 		}
 		var actual TestCase
-		TestData(mockt, "testdata/text", &actual)
+		LoadTestData(mockt, "testdata/text", &actual)
 		expected := TestCase{"hello world"}
 		require.EqualValues(t, expected, actual)
 	})
@@ -41,7 +41,7 @@ func TestTestData(t *testing.T) {
 			Input []byte `testdata:"input.txt"`
 		}
 		var actual TestCase
-		TestData(mockt, "testdata/text", &actual)
+		LoadTestData(mockt, "testdata/text", &actual)
 		expected := TestCase{[]byte("hello world")}
 		require.EqualValues(t, expected, actual)
 	})
@@ -59,7 +59,7 @@ func TestTestData(t *testing.T) {
 				Input json.RawMessage `testdata:"input.json"`
 			}
 			var actual TestCase
-			TestData(mockt, "testdata/json", &actual)
+			LoadTestData(mockt, "testdata/json", &actual)
 			expected := TestCase{json.RawMessage("{\n  \"hello\": \"world\"\n}")}
 			require.EqualValues(t, expected, actual)
 		})
@@ -76,7 +76,7 @@ func TestTestData(t *testing.T) {
 				Input map[string]interface{} `testdata:"input.json"`
 			}
 			var actual TestCase
-			TestData(mockt, "testdata/json", &actual)
+			LoadTestData(mockt, "testdata/json", &actual)
 			expected := TestCase{map[string]interface{}{"hello": "world"}}
 			require.EqualValues(t, expected, actual)
 		})
@@ -93,7 +93,7 @@ func TestTestData(t *testing.T) {
 				Input interface{} `testdata:"input.json"`
 			}
 			var actual TestCase
-			TestData(mockt, "testdata/json", &actual)
+			LoadTestData(mockt, "testdata/json", &actual)
 			expected := TestCase{map[string]interface{}{"hello": "world"}}
 			require.EqualValues(t, expected, actual)
 		})
@@ -112,7 +112,7 @@ func TestTestData(t *testing.T) {
 				} `testdata:"input.json"`
 			}
 			var actual TestCase
-			TestData(mockt, "testdata/json", &actual)
+			LoadTestData(mockt, "testdata/json", &actual)
 			expected := TestCase{
 				Input: struct {
 					Hello string `json:"hello"`
@@ -136,7 +136,7 @@ func TestTestData(t *testing.T) {
 				Input map[string]interface{} `testdata:"invalid.json"`
 			}
 			var actual TestCase
-			TestData(mockt, "testdata/json", &actual)
+			LoadTestData(mockt, "testdata/json", &actual)
 		})
 
 		t.Run("optional", func(t *testing.T) {
@@ -153,7 +153,7 @@ func TestTestData(t *testing.T) {
 				} `testdata:"input.json,optional"`
 			}
 			var actual TestCase
-			TestData(mockt, "testdata/json", &actual)
+			LoadTestData(mockt, "testdata/json", &actual)
 			expected := TestCase{
 				Input: struct {
 					Hello string `json:"hello"`
@@ -179,7 +179,7 @@ func TestTestData(t *testing.T) {
 			B []byte `testdata:"b.txt"`
 		}
 		var actual TestCase
-		TestData(mockt, "testdata/multiple", &actual)
+		LoadTestData(mockt, "testdata/multiple", &actual)
 		expected := TestCase{"A", []byte("B")}
 		require.EqualValues(t, expected, actual)
 	})
@@ -192,7 +192,7 @@ func TestTestData(t *testing.T) {
 		mockt.EXPECT().Helper()
 		mockt.EXPECT().Fatal("output cannot be nil")
 
-		TestData(mockt, "testdata/text", nil)
+		LoadTestData(mockt, "testdata/text", nil)
 	})
 
 	t.Run("non-pointer", func(t *testing.T) {
@@ -203,7 +203,7 @@ func TestTestData(t *testing.T) {
 		mockt.EXPECT().Helper()
 		mockt.EXPECT().Fatalf("output must be pointer value, instead got %s", reflect.Struct)
 
-		TestData(mockt, "testdata/text", struct{}{})
+		LoadTestData(mockt, "testdata/text", struct{}{})
 	})
 
 	t.Run("missing file", func(t *testing.T) {
@@ -219,7 +219,7 @@ func TestTestData(t *testing.T) {
 			Input string `testdata:"does-not-exist"`
 		}
 		var actual TestCase
-		TestData(mockt, "testdata/text", &actual)
+		LoadTestData(mockt, "testdata/text", &actual)
 	})
 
 	t.Run("missing file optional", func(t *testing.T) {
@@ -235,7 +235,7 @@ func TestTestData(t *testing.T) {
 			Input string `testdata:"does-not-exist,optional"`
 		}
 		var actual TestCase
-		TestData(mockt, "testdata/text", &actual)
+		LoadTestData(mockt, "testdata/text", &actual)
 	})
 
 	t.Run("missing struct tag", func(t *testing.T) {
@@ -249,7 +249,7 @@ func TestTestData(t *testing.T) {
 			Missing string
 		}
 		var actual TestCase
-		TestData(mockt, "testdata/text", &actual)
+		LoadTestData(mockt, "testdata/text", &actual)
 		require.Empty(t, actual.Missing)
 	})
 
@@ -264,7 +264,7 @@ func TestTestData(t *testing.T) {
 			Missing string `testdata:""`
 		}
 		var actual TestCase
-		TestData(mockt, "testdata/text", &actual)
+		LoadTestData(mockt, "testdata/text", &actual)
 		require.Empty(t, actual.Missing)
 	})
 
@@ -279,7 +279,7 @@ func TestTestData(t *testing.T) {
 			Missing string `testdata:"-"`
 		}
 		var actual TestCase
-		TestData(mockt, "testdata/text", &actual)
+		LoadTestData(mockt, "testdata/text", &actual)
 		require.Empty(t, actual.Missing)
 	})
 
@@ -295,7 +295,7 @@ func TestTestData(t *testing.T) {
 			Missing string `json:"missing-last-quote`
 		}
 		var actual TestCase
-		TestData(mockt, "testdata/text", &actual)
+		LoadTestData(mockt, "testdata/text", &actual)
 		require.Empty(t, actual.Missing)
 	})
 }

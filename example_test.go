@@ -17,7 +17,7 @@ func ExampleTestData() {
 	}
 
 	var testcase TestCase
-	got.TestData(t, "testdata/text", &testcase)
+	got.LoadTestData(t, "testdata/text", &testcase)
 
 	actual := strings.ToUpper(testcase.Input)
 	if actual != testcase.Expected {
