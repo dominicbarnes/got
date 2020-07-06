@@ -16,7 +16,7 @@ func GetDirs(t TestingT, dir string) []string {
 	var dirs []string
 	for _, file := range files {
 		if file.IsDir() {
-			dirs = append(dirs, dir)
+			dirs = append(dirs, file.Name())
 		}
 	}
 	return dirs

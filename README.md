@@ -13,6 +13,12 @@ The `testdata` package loads your [test fixtures][dave-cheney-test-fixtures]
 into structs to reduce boilerplate in your tests.
 
 ```go
+import (
+  "testing"
+
+  "github.com/dominicbarnes/got"
+)
+
 type TestCase struct {
   Input    string `testdata:"input.txt"`
   Expected string `testdata:"expected.txt"`
@@ -26,7 +32,7 @@ type TestCase struct {
 
 func TestStringsToUpper(t *testing.T) {
   var testcase TestCase
-  if err := testdata.Load("testdata", &testcase); err != nil {
+  if err := got.LoadTestData("testdata", &testcase); err != nil {
     t.Fatal(err)
   }
   actual := strings.ToUpper(testcase.Input)
