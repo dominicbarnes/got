@@ -9,8 +9,9 @@
 
 ## testdata
 
-The `testdata` package loads your [test fixtures][dave-cheney-test-fixtures]
-into structs to reduce boilerplate in your tests.
+A common pattern when writing tests is to use [file-based test fixtures][dave-cheney-test-fixtures].
+This library includes some helper functions for loading files from disk into a
+struct to eliminate this boilerplate from your own code.
 
 ```go
 import (

@@ -2,12 +2,12 @@ package got_test
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	reflect "reflect"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -62,7 +62,7 @@ func TestLoadTestData(t *testing.T) {
 		}
 		var actual TestCase
 		LoadTestData(mockt, "testdata/text", &actual)
-		spew.Dump(actual)
+
 		require.EqualValues(t, filepath.Join("testdata/text/input.txt"), actual.Input.Name())
 	})
 
@@ -249,7 +249,7 @@ func TestLoadTestData(t *testing.T) {
 		mockt := NewMockTestingT(ctrl)
 		mockt.EXPECT().Helper()
 		mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/text/does-not-exist")
-		mockt.EXPECT().Logf("%s: failed to read optional file: %s", "Input", "open testdata/text/does-not-exist: no such file or directory")
+		mockt.EXPECT().Logf("%s: optional file not found", "Input")
 
 		type TestCase struct {
 			Input string `testdata:"does-not-exist,optional"`
@@ -317,5 +317,156 @@ func TestLoadTestData(t *testing.T) {
 		var actual TestCase
 		LoadTestData(mockt, "testdata/text", &actual)
 		require.Empty(t, actual.Missing)
+	})
+}
+
+func TestSaveGoldenTestData(t *testing.T) {
+	t.Run("string", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		dir, err := ioutil.TempDir("", "")
+		require.NoError(t, err)
+
+		mockt := NewMockTestingT(ctrl)
+		mockt.EXPECT().Helper()
+		mockt.EXPECT().Logf("%s: writing file %s", "Output", filepath.Join(dir, "output.txt"))
+
+		type TestCase struct {
+			Output string `testdata:"output.txt,golden"`
+		}
+
+		expected := TestCase{Output: "hello world"}
+		SaveGoldenTestData(mockt, &expected, dir)
+
+		var actual TestCase
+		LoadTestData(t, dir, &actual)
+
+		require.EqualValues(t, expected, actual)
+	})
+
+	t.Run("bytes", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		dir, err := ioutil.TempDir("", "")
+		require.NoError(t, err)
+
+		mockt := NewMockTestingT(ctrl)
+		mockt.EXPECT().Helper()
+		mockt.EXPECT().Logf("%s: writing file %s", "Output", filepath.Join(dir, "output.txt"))
+
+		type TestCase struct {
+			Output []byte `testdata:"output.txt,golden"`
+		}
+
+		expected := TestCase{Output: []byte("hello world")}
+		SaveGoldenTestData(mockt, &expected, dir)
+
+		var actual TestCase
+		LoadTestData(t, dir, &actual)
+
+		require.EqualValues(t, expected, actual)
+	})
+
+	t.Run("json", func(t *testing.T) {
+		t.Run("raw", func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			dir, err := ioutil.TempDir("", "")
+			require.NoError(t, err)
+
+			mockt := NewMockTestingT(ctrl)
+			mockt.EXPECT().Helper()
+			mockt.EXPECT().Logf("%s: writing file %s", "Output", filepath.Join(dir, "output.json"))
+
+			type TestCase struct {
+				Output json.RawMessage `testdata:"output.json,golden"`
+			}
+
+			expected := TestCase{Output: json.RawMessage(`{"hello":"world"}`)}
+			SaveGoldenTestData(mockt, &expected, dir)
+
+			var actual TestCase
+			LoadTestData(t, dir, &actual)
+
+			require.EqualValues(t, expected, actual)
+		})
+
+		t.Run("map", func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			dir, err := ioutil.TempDir("", "")
+			require.NoError(t, err)
+
+			mockt := NewMockTestingT(ctrl)
+			mockt.EXPECT().Helper()
+			mockt.EXPECT().Logf("%s: writing file %s", "Output", filepath.Join(dir, "output.json"))
+
+			type TestCase struct {
+				Output map[string]interface{} `testdata:"output.json,golden"`
+			}
+
+			expected := TestCase{Output: map[string]interface{}{"hello": "world"}}
+			SaveGoldenTestData(mockt, &expected, dir)
+
+			var actual TestCase
+			LoadTestData(t, dir, &actual)
+
+			require.EqualValues(t, expected, actual)
+		})
+
+		t.Run("interface", func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			dir, err := ioutil.TempDir("", "")
+			require.NoError(t, err)
+
+			mockt := NewMockTestingT(ctrl)
+			mockt.EXPECT().Helper()
+			mockt.EXPECT().Logf("%s: writing file %s", "Output", filepath.Join(dir, "output.json"))
+
+			type TestCase struct {
+				Output interface{} `testdata:"output.json,golden"`
+			}
+
+			expected := TestCase{Output: map[string]interface{}{"hello": "world"}}
+			SaveGoldenTestData(mockt, &expected, dir)
+
+			var actual TestCase
+			LoadTestData(t, dir, &actual)
+
+			require.EqualValues(t, expected, actual)
+		})
+
+		t.Run("struct", func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			dir, err := ioutil.TempDir("", "")
+			require.NoError(t, err)
+
+			mockt := NewMockTestingT(ctrl)
+			mockt.EXPECT().Helper()
+			mockt.EXPECT().Logf("%s: writing file %s", "Output", filepath.Join(dir, "output.json"))
+
+			type TestCase struct {
+				Output struct {
+					Hello string `json:"hello"`
+				} `testdata:"output.json,golden"`
+			}
+
+			var expected TestCase
+			expected.Output.Hello = "world"
+			SaveGoldenTestData(mockt, &expected, dir)
+
+			var actual TestCase
+			LoadTestData(t, dir, &actual)
+
+			require.EqualValues(t, expected, actual)
+		})
 	})
 }
