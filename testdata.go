@@ -110,8 +110,6 @@ func LoadTestData(t TestingT, dir string, output interface{}) {
 	}
 }
 
-const fileMode = os.FileMode(0644)
-
 // SaveGoldenTestData takes the data embedded in the input struct for properties
 // with the "golden" parameter in their struct tag and saves it to disk.
 //
@@ -159,30 +157,39 @@ func SaveGoldenTestData(t TestingT, input interface{}, dir string) {
 		file := filepath.Join(dir, tag.Name)
 		t.Logf("%s: writing file %s", field.Name, file)
 
-		if field.Type.Kind() == reflect.String {
-			if err := ioutil.WriteFile(file, []byte(val.Field(i).String()), fileMode); err != nil {
-				t.Fatalf("%s: failed to write file %s: %s", field.Name, file, err)
-				return
-			}
-		} else if field.Type.Kind() == reflect.Slice && field.Type.Elem().Kind() == reflect.Uint8 {
-			if err := ioutil.WriteFile(file, val.Field(i).Bytes(), fileMode); err != nil {
+		data, err := encode(t, file, field, val.Field(i))
+		if err != nil {
+			t.Fatalf("%s: failed to write file %s: %s", field.Name, file, err)
+			return
+		}
+
+		if len(data) > 0 {
+			if err := ioutil.WriteFile(file, data, 0644); err != nil {
 				t.Fatalf("%s: failed to write file %s: %s", field.Name, file, err)
 				return
 			}
 		} else {
-			switch filepath.Ext(file) {
-			case ".json":
-				data, err := json.Marshal(val.Field(i).Interface())
-				if err != nil {
-					t.Fatal("%s: failed to encode json: %s", field.Name, err)
-					return
-				}
-
-				if err := ioutil.WriteFile(file, data, fileMode); err != nil {
-					t.Fatalf("%s: failed to write file %s: %s", field.Name, file, err)
+			if err := os.Remove(file); err != nil {
+				if !os.IsNotExist(err) {
+					t.Fatalf("%s: failed to delete file %s: %s", field.Name, file, err)
 					return
 				}
 			}
 		}
 	}
+}
+
+func encode(t TestingT, file string, field reflect.StructField, val reflect.Value) ([]byte, error) {
+	if field.Type.Kind() == reflect.String {
+		return []byte(val.String()), nil
+	} else if field.Type.Kind() == reflect.Slice && field.Type.Elem().Kind() == reflect.Uint8 {
+		return val.Bytes(), nil
+	} else {
+		switch filepath.Ext(file) {
+		case ".json":
+			return json.Marshal(val.Interface())
+		}
+	}
+
+	return nil, nil
 }

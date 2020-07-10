@@ -469,4 +469,34 @@ func TestSaveGoldenTestData(t *testing.T) {
 			require.EqualValues(t, expected, actual)
 		})
 	})
+
+	t.Run("empty", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		dir, err := ioutil.TempDir("", "")
+		require.NoError(t, err)
+
+		mockt := NewMockTestingT(ctrl)
+		mockt.EXPECT().Helper().Times(2)
+		mockt.EXPECT().Logf("%s: writing file %s", "Output", filepath.Join(dir, "output.txt")).Times(2)
+
+		type TestCase struct {
+			Output string `testdata:"output.txt,optional,golden"`
+		}
+
+		expected := TestCase{Output: "hello world"}
+		SaveGoldenTestData(mockt, &expected, dir)
+
+		expected.Output = "" // trigger a delete
+		SaveGoldenTestData(mockt, &expected, dir)
+
+		var actual TestCase
+		LoadTestData(t, dir, &actual)
+
+		require.EqualValues(t, expected, actual)
+
+		_, err = os.Open(filepath.Join(dir, "output.txt"))
+		require.True(t, os.IsNotExist(err), "file should have been deleted")
+	})
 }
