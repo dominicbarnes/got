@@ -2,6 +2,7 @@ package got
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -25,12 +26,24 @@ var osFileType = reflect.TypeOf(new(os.File))
 // and the test will fail if the file is not found or otherwise fails to load.
 // You can specify "optional" on the struct tag to suppress this behavior.
 //
-// The easiest examples include using types []byte or string which a decently
-// low-level. However, you can go even lower by using *os.File to get a raw file
-// reference.
+// Raw Types
 //
-// If your file is a JSON file, you can use any arbitrary type and the file body
-// will be unmarshalled into that type, allowing you to still get type-safety.
+// The most low-level type is *os.File, which will open the file and put the
+// reference into the struct. Use this if you need the most control over what
+// happens after load.
+//
+// The next level up will be string and []byte which will be parsed directly
+// from the file contents, with no additional transformation.
+//
+// Structured Types
+//
+// The next level up from that will be more complex data types like structs,
+// maps and slices. In order to take advantage of these, you'll need to use a
+// supported decoder.
+//
+// Currently, only JSON is supported, and is activated when the file has a .json
+// file extension. In this case, the file contents are run through
+// json.Unmarshal into the target type.
 func LoadTestData(t TestingT, dir string, output interface{}) {
 	t.Helper()
 
@@ -67,56 +80,72 @@ func LoadTestData(t TestingT, dir string, output interface{}) {
 		file := filepath.Join(dir, tag.Name)
 		t.Logf("%s: reading file %s", field.Name, file)
 
+		f, err := openTagFile(file, tag)
+		if err != nil {
+			t.Fatalf("%s: failed to open file: %s", field.Name, err.Error())
+			return
+		} else if f == nil {
+			t.Logf("%s: failed to open optional file", field.Name)
+			continue
+		}
+
+		// if the target type is an *os.File, attempt no further transformation
 		if field.Type == osFileType {
-			f, err := os.Open(file)
-			if err != nil {
-				t.Fatalf("%s: failed to open file: %s", field.Name, err.Error())
+			val.Field(i).Set(reflect.ValueOf(f))
+			continue
+		}
+
+		// read the file contents
+		data, err := ioutil.ReadAll(f)
+		if err != nil {
+			t.Fatalf("%s: failed to read file: %s", field.Name, err.Error())
+			return
+		}
+
+		// raw types
+		if isBytes(field.Type) {
+			val.Field(i).SetBytes(data)
+			continue
+		} else if isString(field.Type) {
+			val.Field(i).SetString(string(data))
+			continue
+		}
+
+		// structured types
+		if filepath.Ext(file) == ".json" {
+			v := reflect.New(field.Type).Interface()
+			if err := json.Unmarshal(data, v); err != nil {
+				t.Fatalf("%s: failed to parse as JSON: %s", field.Name, err.Error())
 				return
 			}
-			val.Field(i).Set(reflect.ValueOf(f))
-		} else {
-			data, err := ioutil.ReadFile(file)
-			if err != nil {
-				if tag.HasOption("optional") {
-					if os.IsNotExist(err) {
-						t.Logf("%s: optional file not found", field.Name)
-					} else {
-						t.Logf("%s: failed to read optional file: %s", field.Name, err.Error())
-					}
-					continue
-				} else {
-					t.Fatalf("%s: failed to read file: %s", field.Name, err.Error())
-					return
-				}
-			}
-
-			if field.Type.Kind() == reflect.String {
-				val.Field(i).SetString(string(data))
-				continue
-			}
-
-			switch filepath.Ext(file) {
-			case ".json":
-				x := reflect.New(field.Type).Interface()
-				if err := json.Unmarshal(data, x); err != nil {
-					t.Fatalf("%s: failed to parse %s as JSON: %s", field.Name, file, err.Error())
-					return
-				}
-				val.Field(i).Set(reflect.ValueOf(x).Elem())
-			default:
-				val.Field(i).Set(reflect.ValueOf(data))
-			}
+			val.Field(i).Set(reflect.ValueOf(v).Elem())
+			continue
 		}
+
+		// add this log as a cue that this particular decode
+		t.Fatalf("%s: file opened, but not decoded", field.Name)
 	}
 }
 
-// SaveGoldenTestData takes the data embedded in the input struct for properties
-// with the "golden" parameter in their struct tag and saves it to disk.
+// SaveGoldenTestData takes struct data with the "golden" parameter in their
+// struct tag and saves it to disk, making it the reverse of LoadTestData.
 //
-// A common pattern for defining test cases is "golden files", which are
-// basically test fixtures that are generally automatically generated when code
-// is known to be working in a specific way. Future tests are run and the output
-// is compared against these test fixtures to detect unintended differences.
+// A common pattern for defining test cases is using "golden files", which are
+// test fixtures that are automatically generated when code is known to be
+// working in a specific way. Future tests are run and the output is compared
+// against these test fixtures to detect unintended differences.
+//
+// Raw Types
+//
+// Currently, *os.File is not supported here due to the ambiguity of writing
+// back the same file reference.
+//
+// The types string and []byte are written to disk as-is.
+//
+// Structured Types
+//
+// Currently, only JSON is supported with any other types, and the value is
+// marshalled (with indent) and written to disk.
 func SaveGoldenTestData(t TestingT, input interface{}, dir string) {
 	t.Helper()
 
@@ -157,7 +186,7 @@ func SaveGoldenTestData(t TestingT, input interface{}, dir string) {
 		file := filepath.Join(dir, tag.Name)
 		t.Logf("%s: writing file %s", field.Name, file)
 
-		data, err := encode(t, file, field, val.Field(i))
+		data, err := encode(file, field, val.Field(i))
 		if err != nil {
 			t.Fatalf("%s: failed to write file %s: %s", field.Name, file, err)
 			return
@@ -168,7 +197,7 @@ func SaveGoldenTestData(t TestingT, input interface{}, dir string) {
 				t.Fatalf("%s: failed to write file %s: %s", field.Name, file, err)
 				return
 			}
-		} else {
+		} else if tag.HasOption("omitempty") {
 			if err := os.Remove(file); err != nil {
 				if !os.IsNotExist(err) {
 					t.Fatalf("%s: failed to delete file %s: %s", field.Name, file, err)
@@ -179,16 +208,39 @@ func SaveGoldenTestData(t TestingT, input interface{}, dir string) {
 	}
 }
 
-func encode(t TestingT, file string, field reflect.StructField, val reflect.Value) ([]byte, error) {
-	if field.Type.Kind() == reflect.String {
-		return []byte(val.String()), nil
-	} else if field.Type.Kind() == reflect.Slice && field.Type.Elem().Kind() == reflect.Uint8 {
-		return val.Bytes(), nil
-	} else {
-		switch filepath.Ext(file) {
-		case ".json":
-			return json.Marshal(val.Interface())
+func openTagFile(file string, tag *structtag.Tag) (*os.File, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		if tag.HasOption("optional") && os.IsNotExist(err) {
+			return nil, nil
 		}
+		return nil, err
+	}
+	return f, nil
+}
+
+func isString(targetType reflect.Type) bool {
+	return targetType.Kind() == reflect.String
+}
+
+func isBytes(targetType reflect.Type) bool {
+	return targetType.Kind() == reflect.Slice && targetType.Elem().Kind() == reflect.Uint8
+}
+
+func encode(file string, field reflect.StructField, val reflect.Value) ([]byte, error) {
+	if field.Type == osFileType {
+		return nil, errors.New("saving *os.File is not currently supported")
+	}
+
+	if isBytes(field.Type) {
+		return val.Bytes(), nil
+	} else if isString(field.Type) {
+		return []byte(val.String()), nil
+	}
+
+	switch filepath.Ext(file) {
+	case ".json":
+		return json.MarshalIndent(val.Interface(), "", "  ")
 	}
 
 	return nil, nil

@@ -150,7 +150,7 @@ func TestLoadTestData(t *testing.T) {
 			mockt := NewMockTestingT(ctrl)
 			mockt.EXPECT().Helper()
 			mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/json/invalid.json")
-			mockt.EXPECT().Fatalf("%s: failed to parse %s as JSON: %s", "Input", "testdata/json/invalid.json", "unexpected end of JSON input")
+			mockt.EXPECT().Fatalf("%s: failed to parse as JSON: %s", "Input", "unexpected end of JSON input")
 
 			type TestCase struct {
 				Input map[string]interface{} `testdata:"invalid.json"`
@@ -233,7 +233,7 @@ func TestLoadTestData(t *testing.T) {
 		mockt := NewMockTestingT(ctrl)
 		mockt.EXPECT().Helper()
 		mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/text/does-not-exist")
-		mockt.EXPECT().Fatalf("%s: failed to read file: %s", "Input", "open testdata/text/does-not-exist: no such file or directory")
+		mockt.EXPECT().Fatalf("%s: failed to open file: %s", "Input", "open testdata/text/does-not-exist: no such file or directory")
 
 		type TestCase struct {
 			Input string `testdata:"does-not-exist"`
@@ -242,14 +242,14 @@ func TestLoadTestData(t *testing.T) {
 		LoadTestData(mockt, "testdata/text", &actual)
 	})
 
-	t.Run("missing file optional", func(t *testing.T) {
+	t.Run("missing optional file", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		mockt := NewMockTestingT(ctrl)
 		mockt.EXPECT().Helper()
 		mockt.EXPECT().Logf("%s: reading file %s", "Input", "testdata/text/does-not-exist")
-		mockt.EXPECT().Logf("%s: optional file not found", "Input")
+		mockt.EXPECT().Logf("%s: failed to open optional file", "Input")
 
 		type TestCase struct {
 			Input string `testdata:"does-not-exist,optional"`
@@ -470,7 +470,7 @@ func TestSaveGoldenTestData(t *testing.T) {
 		})
 	})
 
-	t.Run("empty", func(t *testing.T) {
+	t.Run("omitempty", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -482,7 +482,7 @@ func TestSaveGoldenTestData(t *testing.T) {
 		mockt.EXPECT().Logf("%s: writing file %s", "Output", filepath.Join(dir, "output.txt")).Times(2)
 
 		type TestCase struct {
-			Output string `testdata:"output.txt,optional,golden"`
+			Output string `testdata:"output.txt,optional,golden,omitempty"`
 		}
 
 		expected := TestCase{Output: "hello world"}
