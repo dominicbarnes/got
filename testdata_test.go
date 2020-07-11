@@ -6,12 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	reflect "reflect"
+	"strings"
 	"testing"
+
+	. "github.com/dominicbarnes/got"
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-
-	. "github.com/dominicbarnes/got"
 )
 
 func TestLoadTestData(t *testing.T) {
@@ -499,4 +500,62 @@ func TestSaveGoldenTestData(t *testing.T) {
 		_, err = os.Open(filepath.Join(dir, "output.txt"))
 		require.True(t, os.IsNotExist(err), "file should have been deleted")
 	})
+}
+
+func ExampleLoadTestData(t *testing.T) {
+	type TestCase struct {
+		Input    string `testdata:"input.txt"`
+		Expected string `testdata:"expected.txt"`
+	}
+
+	var test TestCase
+	LoadTestData(t, "testdata", &test)
+
+	actual := strings.ToUpper(test.Input)
+	if actual != test.Expected {
+		t.Fatalf("actual value '%s' did not match expected value '%s'", actual, test.Expected)
+	}
+}
+
+func ExampleLoadTestData_jSON(t *testing.T) {
+	type Input struct {
+		Text string `json:"text"`
+	}
+
+	type Output struct {
+		Text string `json:"text"`
+	}
+
+	type TestCase struct {
+		Input    Input  `testdata:"input.json"`
+		Expected Output `testdata:"expected.json"`
+	}
+
+	var test TestCase
+	LoadTestData(t, "testdata", &test)
+
+	actual := strings.ToUpper(test.Input.Text)
+	if actual != test.Expected.Text {
+		t.Fatalf("actual value '%s' did not match expected value '%s'", actual, test.Expected.Text)
+	}
+}
+
+func ExampleLoadTestData_file(t *testing.T) {
+	type TestCase struct {
+		Input    *os.File `testdata:"input.txt"`
+		Expected string   `testdata:"expected.txt"`
+	}
+
+	var test TestCase
+	LoadTestData(t, "testdata", &test)
+
+	input, err := ioutil.ReadAll(test.Input)
+	if err != nil {
+		t.Fatalf("failed to read input file: %s", err.Error())
+	}
+
+	actual := strings.ToUpper(string(input))
+	if actual != test.Expected {
+		t.Fatalf("actual value '%s' did not match expected value '%s'", actual, test.Expected)
+	}
 }

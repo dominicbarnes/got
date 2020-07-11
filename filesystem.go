@@ -10,7 +10,7 @@ func GetDirs(t TestingT, dir string) []string {
 
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		t.Fatal("failed to read testdata dir")
+		t.Fatalf("failed to read testdata dir: %s", err.Error())
 	}
 
 	var dirs []string
