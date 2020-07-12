@@ -107,6 +107,7 @@ func loadDir(dir string, output interface{}) error {
 			}
 
 			m := reflect.MakeMap(field.Type)
+
 			for _, match := range matches {
 				rel, err := filepath.Rel(dir, match)
 				if err != nil {
@@ -122,8 +123,9 @@ func loadDir(dir string, output interface{}) error {
 
 				m.SetMapIndex(key, value)
 			}
+
 			val.Field(i).Set(m)
-			return nil
+			continue
 		}
 
 		if err := loadFile(file, field, val.Field(i), tag); err != nil {
