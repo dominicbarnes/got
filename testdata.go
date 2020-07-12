@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/fatih/structtag"
@@ -33,7 +34,7 @@ const tagName = "testdata"
 //   testdata:"state.json,optional"
 //
 // There are other struct tag options, but do not apply for the purposes of this
-// function. Look to SaveGoldenTestData for additional struct tag options.
+// function. Look to SaveTestData for additional struct tag options.
 //
 // Raw Types
 //
@@ -52,9 +53,13 @@ const tagName = "testdata"
 // Map Types
 //
 // Maps with string keys are given special treatment. When used, the filename
-// will be treated as a glob pattern and the map will be populated with the
-// filename (relative to dir) as the key and the value will be decoded as
-// described above.
+// can be treated as a glob pattern, provided it includes a "*" character.
+//
+// When a glob pattern is detected, the key is treated as the filename (relative
+// to dir) as the key and the value will be decoded as described above.
+//
+// If a pattern is not detected, then the value will be decoded directly like
+// other structs.
 func LoadTestData(t *testing.T, dir string, output ...interface{}) {
 	t.Helper()
 
@@ -95,7 +100,7 @@ func loadDir(dir string, output interface{}) error {
 
 		file := filepath.Join(dir, tag.Name)
 
-		if isMap(field.Type) {
+		if isMap(field.Type) && strings.Contains(tag.Name, "*") {
 			matches, err := filepath.Glob(file)
 			if err != nil {
 				return fmt.Errorf("%s: failed to list files %s: %w", field.Name, file, err)
@@ -176,7 +181,7 @@ func loadFile(file string, field reflect.StructField, value reflect.Value, tag *
 // empty after encoding it. If you would prefer these empty files to not be
 // present at all, include the "omitempty" option as well.
 //
-//   testdata:"error.txt,golden,omitempty"
+//   testdata:"error.txt,omitempty"
 //
 // Raw Types
 //
@@ -189,8 +194,10 @@ func loadFile(file string, field reflect.StructField, value reflect.Value, tag *
 // Map Types
 //
 // Similar to LoadTestData, maps with string keys are given special treatment.
-// The keys are treated as paths relative to dir and the data is encoded as
-// described above.
+// If the path includes a "*" (a glob pattern), then the keys are treated as
+// paths relative to dir and the data is encoded as described above.
+//
+// If a glob pattern is not used, then the value will be encoded like structs.
 func SaveTestData(t *testing.T, dir string, input ...interface{}) {
 	t.Helper()
 
@@ -229,7 +236,7 @@ func saveDir(dir string, input interface{}) error {
 			continue
 		}
 
-		if isMap(field.Type) {
+		if isMap(field.Type) && strings.Contains(tag.Name, "*") {
 			iter := val.Field(i).MapRange()
 
 			for iter.Next() {

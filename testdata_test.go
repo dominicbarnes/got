@@ -42,6 +42,13 @@ func TestLoadDir(t *testing.T) {
 			}{"world"}},
 		},
 		{
+			name: "json map",
+			dir:  "json",
+			expected: testJSONMap{
+				Input: map[string]interface{}{"hello": "world"},
+			},
+		},
+		{
 			name:     "json invalid",
 			dir:      "json",
 			expected: testJSONInvalid{},
@@ -157,6 +164,12 @@ func TestSaveTestData(t *testing.T) {
 			}{"world"}},
 		},
 		{
+			name: "json map",
+			expected: &testJSONMap{
+				Input: map[string]interface{}{"hello": "world"},
+			},
+		},
+		{
 			name: "multiple",
 			expected: &testMultipleMap{
 				Files: map[string]string{
@@ -189,7 +202,7 @@ func TestSaveTestData(t *testing.T) {
 		require.NoError(t, err)
 
 		type TestCase struct {
-			Output string `testdata:"output.txt,optional,golden,omitempty"`
+			Output string `testdata:"output.txt,optional,omitempty"`
 		}
 
 		expected := TestCase{Output: "hello world"}
@@ -219,6 +232,11 @@ type testTextBytes struct {
 type testJSONRaw struct {
 	Input json.RawMessage `testdata:"input.json"`
 }
+
+type testJSONMap struct {
+	Input map[string]interface{} `testdata:"input.json"`
+}
+
 type testJSONStruct struct {
 	Input struct {
 		Hello string `json:"hello"`
