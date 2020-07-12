@@ -172,11 +172,6 @@ func loadFile(file string, field reflect.StructField, value reflect.Value, tag *
 // working in a specific way. Future tests are run and the output is compared
 // against these test fixtures to detect unintended differences.
 //
-// As such, to use this behavior for your struct, include the "golden" option
-// in your struct tag.
-//
-//   testdata:"expected.json,golden"
-//
 // By default, a file will always be written, even if that file turns out to be
 // empty after encoding it. If you would prefer these empty files to not be
 // present at all, include the "omitempty" option as well.
