@@ -1,43 +1,50 @@
-package got_test
+package got
 
 import (
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/dominicbarnes/got"
-	. "github.com/dominicbarnes/got"
-
-	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetDirs(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func TestListSubDirs(t *testing.T) {
+	spec := []struct {
+		name     string
+		input    string
+		expected []string
+		fail     bool
+	}{
+		{
+			name:     "success",
+			input:    "testdata",
+			expected: []string{"json", "multiple", "text"},
+		},
+		{
+			name:  "fail",
+			input: "does-not-exist",
+			fail:  true,
+		},
+	}
 
-	mockt := NewMockTestingT(ctrl)
-	mockt.EXPECT().Helper()
-
-	actual := GetDirs(mockt, "testdata")
-	expected := []string{"json", "multiple", "text"}
-
-	require.EqualValues(t, expected, actual)
-
-	t.Run("missing dir", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		mockt := NewMockTestingT(ctrl)
-		mockt.EXPECT().Helper()
-		mockt.EXPECT().Fatalf("failed to read testdata dir: %s", "open does-not-exist: no such file or directory")
-
-		GetDirs(mockt, "does-not-exist")
-	})
+	for _, test := range spec {
+		t.Run(test.name, func(t *testing.T) {
+			actual, err := listSubDirs(test.input)
+			if test.fail {
+				require.Nil(t, actual)
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.EqualValues(t, test.expected, actual)
+			}
+		})
+	}
 }
 
-func ExampleGetDirs(t *testing.T) {
-	for _, testName := range got.GetDirs(t, "testdata") {
+func ExampleListSubDirs() {
+	t := new(testing.T) // not necessary in normal test code
+
+	for _, testName := range ListSubDirs(t, "testdata") {
 		t.Run(testName, func(t *testing.T) {
 			testDir := filepath.Join("testdata", testName)
 
