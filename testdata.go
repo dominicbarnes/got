@@ -263,6 +263,12 @@ func saveFile(file string, field reflect.StructField, val reflect.Value, tag *st
 	}
 
 	if len(data) > 0 {
+		dir := filepath.Dir(file)
+
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("%s: failed to create dir %s: %s", field.Name, dir, err)
+		}
+
 		if err := ioutil.WriteFile(file, data, 0644); err != nil {
 			return fmt.Errorf("%s: failed to write file %s: %s", field.Name, file, err)
 		}
