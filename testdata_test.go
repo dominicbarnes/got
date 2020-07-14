@@ -16,61 +16,86 @@ func TestLoadDir(t *testing.T) {
 	spec := []struct {
 		name     string
 		dir      string
+		input    interface{}
 		expected interface{}
 		fail     bool
 	}{
 		{
 			name:     "string",
 			dir:      "text",
-			expected: testTextString{Input: "hello world"},
+			input:    &testTextString{},
+			expected: &testTextString{Input: "hello world"},
 		},
 		{
 			name:     "bytes",
 			dir:      "text",
-			expected: testTextBytes{Input: []byte("hello world")},
+			input:    &testTextBytes{},
+			expected: &testTextBytes{Input: []byte("hello world")},
 		},
 		{
 			name:     "json raw",
 			dir:      "json",
-			expected: testJSONRaw{Input: json.RawMessage("{\n  \"hello\": \"world\"\n}")},
+			input:    &testJSONRaw{},
+			expected: &testJSONRaw{Input: json.RawMessage("{\n  \"hello\": \"world\"\n}")},
 		},
 		{
-			name: "json struct",
-			dir:  "json",
-			expected: testJSONStruct{Input: struct {
+			name:  "json struct",
+			dir:   "json",
+			input: &testJSONStruct{},
+			expected: &testJSONStruct{Input: struct {
 				Hello string `json:"hello"`
 			}{"world"}},
 		},
 		{
-			name: "json map",
+			name: "json should not clobber",
 			dir:  "json",
-			expected: testJSONMap{
+			input: &testJSONMap{
+				Input: map[string]interface{}{
+					"hello": "dave", // should be overwritten
+					"a":     "A",    // should not be deleted
+				},
+			},
+			expected: &testJSONMap{
+				Input: map[string]interface{}{
+					"hello": "world",
+					"a":     "A",
+				},
+			},
+		},
+		{
+			name:  "json map",
+			dir:   "json",
+			input: &testJSONMap{},
+			expected: &testJSONMap{
 				Input: map[string]interface{}{"hello": "world"},
 			},
 		},
 		{
-			name:     "json invalid",
-			dir:      "json",
-			expected: testJSONInvalid{},
-			fail:     true,
+			name:  "json invalid",
+			dir:   "json",
+			input: &testJSONInvalid{},
+			fail:  true,
 		},
 		{
 			name:     "json optional",
 			dir:      "json",
-			expected: testJSONOptional{},
+			input:    &testJSONOptional{},
+			expected: &testJSONOptional{},
 		},
 		{
-			name: "multiple",
-			dir:  "multiple",
-			expected: testMultiple{
+			name:  "multiple",
+			dir:   "multiple",
+			input: &testMultiple{},
+			expected: &testMultiple{
 				A: "A",
 				B: []byte("B"),
 			},
 		},
 		{
-			name: "multiple map",
-			dir:  "multiple",
-			expected: testMultipleMap{
+			name:  "multiple map",
+			dir:   "multiple",
+			input: &testMultipleMap{},
+			expected: &testMultipleMap{
 				Files: map[string]string{
 					"a.txt": "A",
 					"b.txt": "B",
@@ -78,36 +103,40 @@ func TestLoadDir(t *testing.T) {
 			},
 		},
 		{
-			name:     "not pointer",
-			dir:      "text",
-			expected: struct{}{},
-			fail:     true,
+			name:  "not pointer",
+			dir:   "text",
+			input: struct{}{},
+			fail:  true,
 		},
 		{
-			name:     "missing file",
-			dir:      "text",
-			expected: testTextMissing{},
-			fail:     true,
+			name:  "missing file",
+			dir:   "text",
+			input: &testTextMissing{},
+			fail:  true,
 		},
 		{
 			name:     "missing optional file",
 			dir:      "text",
-			expected: testTextMissingOptional{},
+			input:    &testTextMissingOptional{},
+			expected: &testTextMissingOptional{},
 		},
 		{
 			name:     "missing struct tag",
 			dir:      "text",
-			expected: testMissingStructTag{},
+			input:    &testMissingStructTag{},
+			expected: &testMissingStructTag{},
 		},
 		{
 			name:     "empty struct tag",
 			dir:      "text",
-			expected: testEmptyStructTag{},
+			input:    &testEmptyStructTag{},
+			expected: &testEmptyStructTag{},
 		},
 		{
 			name:     "dash struct tag",
 			dir:      "text",
-			expected: testDashStructTag{},
+			input:    &testDashStructTag{},
+			expected: &testDashStructTag{},
 		},
 		{
 			name: "nil",
@@ -118,22 +147,12 @@ func TestLoadDir(t *testing.T) {
 
 	for _, test := range spec {
 		t.Run(test.name, func(t *testing.T) {
-			var input interface{}
-			if test.expected != nil {
-				if s, ok := test.expected.(struct{}); ok {
-					input = s
-				} else {
-					input = reflect.New(reflect.TypeOf(test.expected)).Interface()
-				}
-			}
-
-			err := loadDir(filepath.Join("testdata", test.dir), input)
+			err := loadDir(filepath.Join("testdata", test.dir), test.input)
 			if test.fail {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				actual := reflect.ValueOf(input).Elem().Interface()
-				require.EqualValues(t, test.expected, actual)
+				require.EqualValues(t, test.expected, test.input)
 			}
 		})
 	}

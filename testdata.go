@@ -160,11 +160,12 @@ func loadFile(file string, field reflect.StructField, value reflect.Value, tag *
 
 	// structured types
 	if filepath.Ext(file) == ".json" {
-		v := reflect.New(value.Type()).Interface()
-		if err := json.Unmarshal(data, v); err != nil {
+		p := reflect.New(value.Type())
+		p.Elem().Set(value) // preserve any prior values
+		if err := json.Unmarshal(data, p.Interface()); err != nil {
 			return fmt.Errorf("%s: failed to parse contents of %s as JSON: %w", field.Name, file, err)
 		}
-		value.Set(reflect.ValueOf(v).Elem())
+		value.Set(p.Elem()) // overwrite with the value modified by json Unmarshal
 		return nil
 	}
 
