@@ -47,6 +47,22 @@ func TestLoadDir(t *testing.T) {
 			}{"world"}},
 		},
 		{
+			name: "json should not clobber",
+			dir:  "json",
+			input: &testJSONMap{
+				Input: map[string]interface{}{
+					"hello": "dave", // should be overwritten
+					"a":     "A",    // should not be deleted
+				},
+			},
+			expected: &testJSONMap{
+				Input: map[string]interface{}{
+					"hello": "world",
+					"a":     "A",
+				},
+			},
+		},
+		{
 			name:  "json map",
 			dir:   "json",
 			input: &testJSONMap{},
