@@ -20,6 +20,7 @@ func TestLoadDir(t *testing.T) {
 		expected interface{}
 		fail     bool
 	}{
+		// text
 		{
 			name:     "string",
 			dir:      "text",
@@ -38,6 +39,7 @@ func TestLoadDir(t *testing.T) {
 			input:    &testJSONRaw{},
 			expected: &testJSONRaw{Input: json.RawMessage("{\n  \"hello\": \"world\"\n}")},
 		},
+		// json
 		{
 			name:  "json struct",
 			dir:   "json",
@@ -45,6 +47,14 @@ func TestLoadDir(t *testing.T) {
 			expected: &testJSONStruct{Input: struct {
 				Hello string `json:"hello"`
 			}{"world"}},
+		},
+		{
+			name:  "json map",
+			dir:   "json",
+			input: &testJSONMap{},
+			expected: &testJSONMap{
+				Input: map[string]interface{}{"hello": "world"},
+			},
 		},
 		{
 			name: "json should not clobber",
@@ -63,14 +73,6 @@ func TestLoadDir(t *testing.T) {
 			},
 		},
 		{
-			name:  "json map",
-			dir:   "json",
-			input: &testJSONMap{},
-			expected: &testJSONMap{
-				Input: map[string]interface{}{"hello": "world"},
-			},
-		},
-		{
 			name:  "json invalid",
 			dir:   "json",
 			input: &testJSONInvalid{},
@@ -82,6 +84,52 @@ func TestLoadDir(t *testing.T) {
 			input:    &testJSONOptional{},
 			expected: &testJSONOptional{},
 		},
+		// yaml
+		{
+			name:  "yaml struct",
+			dir:   "yaml",
+			input: &testYAMLStruct{},
+			expected: &testYAMLStruct{Input: struct {
+				Hello string `yaml:"hello"`
+			}{"world"}},
+		},
+		{
+			name:  "yaml map",
+			dir:   "yaml",
+			input: &testYAMLMap{},
+			expected: &testYAMLMap{
+				Input: map[string]interface{}{"hello": "world"},
+			},
+		},
+		{
+			name: "yaml should not clobber",
+			dir:  "yaml",
+			input: &testYAMLMap{
+				Input: map[string]interface{}{
+					"hello": "dave", // should be overwritten
+					"a":     "A",    // should not be deleted
+				},
+			},
+			expected: &testYAMLMap{
+				Input: map[string]interface{}{
+					"hello": "world",
+					"a":     "A",
+				},
+			},
+		},
+		{
+			name:  "yaml invalid",
+			dir:   "yaml",
+			input: &testYAMLInvalid{},
+			fail:  true,
+		},
+		{
+			name:     "yaml optional",
+			dir:      "yaml",
+			input:    &testYAMLOptional{},
+			expected: &testYAMLOptional{},
+		},
+		// multiple
 		{
 			name:  "multiple",
 			dir:   "multiple",
@@ -102,6 +150,7 @@ func TestLoadDir(t *testing.T) {
 				},
 			},
 		},
+		// misc
 		{
 			name:  "not pointer",
 			dir:   "text",
@@ -111,14 +160,14 @@ func TestLoadDir(t *testing.T) {
 		{
 			name:  "missing file",
 			dir:   "text",
-			input: &testTextMissing{},
+			input: &testMissing{},
 			fail:  true,
 		},
 		{
 			name:     "missing optional file",
 			dir:      "text",
-			input:    &testTextMissingOptional{},
-			expected: &testTextMissingOptional{},
+			input:    &testMissingOptional{},
+			expected: &testMissingOptional{},
 		},
 		{
 			name:     "missing struct tag",
@@ -240,6 +289,8 @@ func TestSaveTestData(t *testing.T) {
 	})
 }
 
+// text
+
 type testTextString struct {
 	Input string `testdata:"input.txt"`
 }
@@ -247,6 +298,8 @@ type testTextString struct {
 type testTextBytes struct {
 	Input []byte `testdata:"input.txt"`
 }
+
+// json
 
 type testJSONRaw struct {
 	Input json.RawMessage `testdata:"input.json"`
@@ -270,6 +323,28 @@ type testJSONOptional struct {
 	Input struct{} `testdata:"does-not-exist.json,optional"`
 }
 
+// yaml
+
+type testYAMLMap struct {
+	Input map[string]interface{} `testdata:"input.yaml"`
+}
+
+type testYAMLStruct struct {
+	Input struct {
+		Hello string `yaml:"hello"`
+	} `testdata:"input.yaml"`
+}
+
+type testYAMLInvalid struct {
+	Input struct{} `testdata:"invalid.yaml"`
+}
+
+type testYAMLOptional struct {
+	Input struct{} `testdata:"does-not-exist.yaml,optional"`
+}
+
+// multiple
+
 type testMultiple struct {
 	A string `testdata:"a.txt"`
 	B []byte `testdata:"b.txt"`
@@ -279,11 +354,13 @@ type testMultipleMap struct {
 	Files map[string]string `testdata:"*.txt"`
 }
 
-type testTextMissing struct {
+// misc
+
+type testMissing struct {
 	Input string `testdata:"does-not-exist"`
 }
 
-type testTextMissingOptional struct {
+type testMissingOptional struct {
 	Input string `testdata:"does-not-exist,optional"`
 }
 

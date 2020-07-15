@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/fatih/structtag"
+	"gopkg.in/yaml.v3"
 )
 
 const tagName = "testdata"
@@ -159,10 +160,20 @@ func loadFile(file string, field reflect.StructField, value reflect.Value, tag *
 	}
 
 	// structured types
-	if filepath.Ext(file) == ".json" {
+	switch filepath.Ext(file) {
+	case ".json":
 		p := reflect.New(value.Type())
 		p.Elem().Set(value) // preserve any prior values
 		if err := json.Unmarshal(data, p.Interface()); err != nil {
+			return fmt.Errorf("%s: failed to parse contents of %s as JSON: %w", field.Name, file, err)
+		}
+		value.Set(p.Elem()) // overwrite with the value modified by json Unmarshal
+		return nil
+
+	case ".yaml":
+		p := reflect.New(value.Type())
+		p.Elem().Set(value) // preserve any prior values
+		if err := yaml.Unmarshal(data, p.Interface()); err != nil {
 			return fmt.Errorf("%s: failed to parse contents of %s as JSON: %w", field.Name, file, err)
 		}
 		value.Set(p.Elem()) // overwrite with the value modified by json Unmarshal

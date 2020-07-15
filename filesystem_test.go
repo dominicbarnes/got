@@ -18,7 +18,7 @@ func TestListSubDirs(t *testing.T) {
 		{
 			name:     "success",
 			input:    "testdata",
-			expected: []string{"json", "multiple", "text"},
+			expected: []string{"json", "multiple", "text", "yaml"},
 		},
 		{
 			name:  "fail",
