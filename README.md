@@ -14,7 +14,7 @@ One approach to writing tests, particularly when they are complex to set up, is
 to use [file-based test fixtures][dave-cheney-test-fixtures].
 
 Embedding in code is usually a suitable option for light-medium complexity code,
-but as things grow more sophisticated, particular for integration testing and
+but as things grow more sophisticated, particularly for integration testing and
 fuzz testing of non-trivial functions, embedding all that state into code can
 become a mess, and (in my experience) less readable the more time has passed.
 
