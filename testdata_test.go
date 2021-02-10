@@ -287,6 +287,29 @@ func TestSaveTestData(t *testing.T) {
 		_, err = os.Open(filepath.Join(dir, "output.txt"))
 		require.True(t, os.IsNotExist(err), "file should have been deleted")
 	})
+
+	t.Run("omitempty json", func(t *testing.T) {
+		dir, err := ioutil.TempDir("", "")
+		require.NoError(t, err)
+
+		type TestCase struct {
+			Output map[string]interface{} `testdata:"output.json,optional,omitempty"`
+		}
+
+		expected := TestCase{Output: map[string]interface{}{"hello": "world"}}
+		require.NoError(t, saveDir(dir, &expected))
+
+		expected.Output = nil // trigger a delete
+		require.NoError(t, saveDir(dir, &expected))
+
+		var actual TestCase
+		require.NoError(t, loadDir(dir, &actual))
+
+		require.EqualValues(t, expected, actual)
+
+		_, err = os.Open(filepath.Join(dir, "output.json"))
+		require.True(t, os.IsNotExist(err), "file should have been deleted")
+	})
 }
 
 // text

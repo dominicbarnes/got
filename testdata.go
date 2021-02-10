@@ -328,7 +328,9 @@ func isMap(targetType reflect.Type) bool {
 }
 
 func encode(file string, field reflect.StructField, val reflect.Value) ([]byte, error) {
-	if isBytes(val.Type()) {
+	if val.IsZero() {
+		return nil, nil
+	} else if isBytes(val.Type()) {
 		return val.Bytes(), nil
 	} else if isString(val.Type()) {
 		return []byte(val.String()), nil
