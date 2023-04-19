@@ -1,8 +1,6 @@
 package got
 
 import (
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,25 +39,25 @@ func TestListSubDirs(t *testing.T) {
 	}
 }
 
-func ExampleListSubDirs() {
-	t := new(testing.T) // not necessary in normal test code
+// func ExampleListSubDirs() {
+// 	t := new(testing.T) // not necessary in normal test code
 
-	for _, testName := range ListSubDirs(t, "testdata") {
-		t.Run(testName, func(t *testing.T) {
-			testDir := filepath.Join("testdata", testName)
+// 	for _, testName := range ListSubDirs(t, "testdata") {
+// 		t.Run(testName, func(t *testing.T) {
+// 			testDir := filepath.Join("testdata", testName)
 
-			type TestCase struct {
-				Input    string `testdata:"input.txt"`
-				Expected string `testdata:"expected.txt"`
-			}
+// 			type TestCase struct {
+// 				Input    string `testdata:"input.txt"`
+// 				Expected string `testdata:"expected.txt"`
+// 			}
 
-			var test TestCase
-			LoadTestData(t, testDir, &test)
+// 			var test TestCase
+// 			LoadTestData(t, testDir, &test)
 
-			actual := strings.ToUpper(test.Input)
-			if actual != test.Expected {
-				t.Fatalf("actual value '%s' did not match expected value '%s'", actual, test.Expected)
-			}
-		})
-	}
-}
+// 			actual := strings.ToUpper(test.Input)
+// 			if actual != test.Expected {
+// 				t.Fatalf("actual value '%s' did not match expected value '%s'", actual, test.Expected)
+// 			}
+// 		})
+// 	}
+// }
