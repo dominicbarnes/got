@@ -1,0 +1,16 @@
+{
+  "example_string": "hello world",
+  "example_number": 3.14,
+  "example_boolean": true,
+  "example_null": null,
+  "example_array": [
+    "a",
+    "b",
+    "c",
+    "d"
+  ],
+  "example_object": {
+    "abc": 123,
+    "def": 456
+  }
+}

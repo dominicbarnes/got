@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -285,7 +284,7 @@ func saveFile(file string, field reflect.StructField, val reflect.Value) error {
 			return fmt.Errorf("%s: failed to create dir %s: %s", field.Name, dir, err)
 		}
 
-		if err := ioutil.WriteFile(file, data, 0644); err != nil {
+		if err := os.WriteFile(file, data, 0644); err != nil {
 			return fmt.Errorf("%s: failed to write file %s: %s", field.Name, file, err)
 		}
 	}

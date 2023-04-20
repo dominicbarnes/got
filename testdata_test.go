@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -112,7 +111,7 @@ func TestLoad(t *testing.T) {
 			B string `testdata:"b.txt"`
 		}
 
-		testLoadOne(t, "multiple-files", new(test), &test{A: "A", B: "B"})
+		testLoadOne(t, "multiple", new(test), &test{A: "A", B: "B"})
 	})
 
 	t.Run("maps", func(t *testing.T) {
@@ -121,7 +120,7 @@ func TestLoad(t *testing.T) {
 				Multiple map[string]string `testdata:"*.txt"`
 			}
 
-			testLoadOne(t, "multiple-files", new(test), &test{
+			testLoadOne(t, "multiple", new(test), &test{
 				Multiple: map[string]string{
 					"a.txt": "A",
 					"b.txt": "B",
@@ -134,7 +133,7 @@ func TestLoad(t *testing.T) {
 				Multiple map[string]string `testdata:"a.txt"`
 			}
 
-			testLoadOne(t, "multiple-files", new(test), &test{
+			testLoadOne(t, "multiple", new(test), &test{
 				Multiple: map[string]string{
 					"a.txt": "A",
 				},
@@ -146,7 +145,7 @@ func TestLoad(t *testing.T) {
 				Multiple map[string][]byte `testdata:"a.txt"`
 			}
 
-			testLoadOne(t, "multiple-files", new(test), &test{
+			testLoadOne(t, "multiple", new(test), &test{
 				Multiple: map[string][]byte{
 					"a.txt": []byte("A"),
 				},
@@ -158,7 +157,7 @@ func TestLoad(t *testing.T) {
 				Multiple map[string]string `testdata:"*.log"`
 			}
 
-			testLoadOne(t, "multiple-files", new(test), &test{
+			testLoadOne(t, "multiple", new(test), &test{
 				Multiple: map[string]string{},
 			})
 		})
@@ -243,7 +242,7 @@ func TestLoad(t *testing.T) {
 			B string `testdata:"b.txt"`
 		}
 
-		testLoadMany(t, "multiple-files",
+		testLoadMany(t, "multiple",
 			[]any{new(test1), new(test2)},
 			[]any{&test1{A: "A"}, &test2{B: "B"}},
 		)
@@ -339,7 +338,7 @@ func TestAssert(t *testing.T) {
 
 				ctx := context.TODO()
 
-				dir, err := ioutil.TempDir("", test.name)
+				dir, err := os.MkdirTemp("", test.name)
 				require.NoError(t, err)
 
 				t.Cleanup(func() { os.RemoveAll(dir) })
