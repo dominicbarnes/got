@@ -1,7 +1,6 @@
 package got
 
 import (
-	"context"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
@@ -22,17 +21,11 @@ type TestCase struct {
 
 // Load is a helper for loading testdata for this test case, factoring in a
 // SharedDir automatically if applicable.
-func (c TestCase) Load(t *testing.T, values ...any) {
-	ctx := context.Background()
-
+func (c TestCase) Load(t T, values ...any) {
 	if c.SharedDir != "" {
-		if err := LoadDirs(ctx, []string{c.Dir, c.SharedDir}, values...); err != nil {
-			t.Fatalf("failed to load testdata: %s", err)
-		}
+		LoadDirs(t, []string{c.Dir, c.SharedDir}, values...)
 	} else {
-		if err := Load(ctx, c.Dir, values...); err != nil {
-			t.Fatalf("failed to load testdata: %s", err)
-		}
+		Load(t, c.Dir, values...)
 	}
 }
 

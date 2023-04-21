@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -230,7 +231,13 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("no outputs", func(t *testing.T) {
-		require.EqualError(t, Load(context.TODO(), filepath.Join("testdata", "text")), "at least 1 output required")
+		ctrl := gomock.NewController(t)
+
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper()
+		mockT.EXPECT().Fatal("at least 1 output required")
+
+		Load(mockT, filepath.Join("testdata", "text"))
 	})
 
 	t.Run("multiple outputs", func(t *testing.T) {
@@ -255,8 +262,14 @@ func TestLoadDirs(t *testing.T) {
 		B string `testdata:"b.txt"`
 	}
 
+	ctrl := gomock.NewController(t)
+
+	mockT := NewMockT(ctrl)
+	mockT.EXPECT().Helper()
+
 	var actual test
-	require.NoError(t, LoadDirs(context.TODO(), []string{"testdata/multiple-dirs/dir1", "testdata/multiple-dirs/dir2"}, &actual))
+	LoadDirs(mockT, []string{"testdata/multiple-dirs/dir1", "testdata/multiple-dirs/dir2"}, &actual)
+
 	require.EqualValues(t, test{A: "A", B: "B"}, actual)
 }
 
@@ -266,7 +279,12 @@ func TestAssert(t *testing.T) {
 			Input string `testdata:"input.txt"`
 		}
 
-		require.NoError(t, Assert(context.TODO(), "testdata/text", &test{Input: "hello world"}))
+		ctrl := gomock.NewController(t)
+
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper()
+
+		Assert(mockT, "testdata/text", &test{Input: "hello world"})
 	})
 
 	t.Run("fail", func(t *testing.T) {
@@ -274,7 +292,13 @@ func TestAssert(t *testing.T) {
 			Input string `testdata:"input.txt"`
 		}
 
-		require.Error(t, Assert(context.TODO(), "testdata/text", &test{Input: "foo bar"}))
+		ctrl := gomock.NewController(t)
+
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper()
+		mockT.EXPECT().Fatal(gomock.Any())
+
+		Assert(mockT, "testdata/text", &test{Input: "foo bar"})
 	})
 
 	t.Run("update", func(t *testing.T) {
@@ -358,15 +382,33 @@ func TestAssert(t *testing.T) {
 }
 
 func testLoadOne(t *testing.T, input string, output, expected any) {
-	require.NoError(t, Load(context.TODO(), filepath.Join("testdata", input), output))
+	ctrl := gomock.NewController(t)
+
+	mockT := NewMockT(ctrl)
+	mockT.EXPECT().Helper()
+
+	Load(mockT, filepath.Join("testdata", input), output)
+
 	require.EqualValues(t, expected, output)
 }
 
 func testLoadMany(t *testing.T, input string, output, expected []any) {
-	require.NoError(t, Load(context.TODO(), filepath.Join("testdata", input), output...))
+	ctrl := gomock.NewController(t)
+
+	mockT := NewMockT(ctrl)
+	mockT.EXPECT().Helper()
+
+	Load(mockT, filepath.Join("testdata", input), output...)
+
 	require.EqualValues(t, expected, output)
 }
 
 func testLoadError(t *testing.T, input string, output any, expectedErr string) {
-	require.EqualError(t, Load(context.TODO(), filepath.Join("testdata", input), output), expectedErr)
+	ctrl := gomock.NewController(t)
+
+	mockT := NewMockT(ctrl)
+	mockT.EXPECT().Helper()
+	mockT.EXPECT().Fatal(expectedErr)
+
+	Load(mockT, filepath.Join("testdata", input), output)
 }

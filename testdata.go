@@ -46,15 +46,23 @@ const tagName = "testdata"
 //
 // The values in the map can be either string, []byte or structs as described
 // above.
-func Load(ctx context.Context, dir string, values ...any) error {
-	return loadDirs(ctx, []string{dir}, values...)
+func Load(t T, dir string, values ...any) {
+	t.Helper()
+
+	if err := loadDirs(context.TODO(), []string{dir}, values...); err != nil {
+		t.Fatal(err.Error())
+	}
 }
 
 // LoadDirs is the same as Load but accepts multiple input directories, which
 // can be used to set up test cases from a common/shared location while allowing
 // an individual test-case to include it's own specific configuration.
-func LoadDirs(ctx context.Context, dirs []string, values ...any) error {
-	return loadDirs(ctx, dirs, values...)
+func LoadDirs(t T, dirs []string, values ...any) {
+	t.Helper()
+
+	if err := loadDirs(context.TODO(), dirs, values...); err != nil {
+		t.Fatal(err.Error())
+	}
 }
 
 // Assert ensures that all the fields within the struct values match what is on
@@ -64,7 +72,15 @@ func LoadDirs(ctx context.Context, dirs []string, values ...any) error {
 // When the "test.update-golden" flag is provided, the contents of each value
 // struct will be persisted to disk instead. This allows any test to easily
 // update their "golden files" and also do the assertion transparently.
-func Assert(ctx context.Context, dir string, values ...any) error {
+func Assert(t T, dir string, values ...any) {
+	t.Helper()
+
+	if err := assert(context.TODO(), dir, values...); err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
+func assert(ctx context.Context, dir string, values ...any) error {
 	if len(values) == 0 {
 		return errors.New("at least 1 value required")
 	}

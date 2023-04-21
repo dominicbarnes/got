@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/fatih/structtag v1.0.0
+	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.9
 	github.com/stretchr/testify v1.3.0
 )
