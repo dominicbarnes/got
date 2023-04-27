@@ -1,83 +1,136 @@
 package got
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
+	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
-	"testing"
 
+	"github.com/dominicbarnes/got/codec"
 	"github.com/fatih/structtag"
-	"gopkg.in/yaml.v3"
+	"github.com/google/go-cmp/cmp"
 )
+
+var updateGolden bool
+
+func init() {
+	flag.BoolVar(&updateGolden, "update-golden", false, "enable to update golden test files")
+}
 
 const tagName = "testdata"
 
-// LoadTestData extracts the contents of a directory into a annotated structs,
-// using the "testdata" struct tag for configuration.
+// Load extracts the contents of dir into values which are structs annotated
+// with the "testdata" struct tag.
 //
-// Struct Tag Format
+// The main parameter of the struct tag will be a path to a file relative to the
+// input directory.
 //
-// The primary argument for the struct tag is a path to a file. Depending on the
-// type of the struct property, the file will be loaded from disk and decoded
-// via reflection.
+// Fields with string or []byte as their types will be populated with the raw
+// contents of the file.
 //
-//   testdata:"input.txt"
+// Struct values will be decoded using the file extension to map to a [Codec].
+// For example, ".json" files can be processed using [JSONCodec] if it has been
+// registered. Additional codecs (eg: YAML, TOML) can be registered if desired.
 //
-// By default, all the struct members with a testdata annotation are required
-// and the test will fail if the file is not found or otherwise fails to load.
-// You can specify "optional" on the struct tag to suppress this behavior.
+// Map values can be used to dynamically load the contents of a directory, in
+// situations where you don't necessarily know all the files ahead of time.
 //
-//   testdata:"state.json,optional"
+// The defined map type must use string keys, otherwise it will return an error.
+// The filename in the struct tag will then be treated as a glob pattern,
+// populating the map with a key for each matched file (relative to the input
+// directory).
 //
-// There are other struct tag options, but do not apply for the purposes of this
-// function. Look to SaveTestData for additional struct tag options.
-//
-// Raw Types
-//
-// The types string and []byte which will be parsed directly from the file
-// contents, with no additional transformation.
-//
-// Struct Types
-//
-// When using structs, the contents of the file will be decoded depending on the
-// file extension.
-//
-// Currently, only JSON is supported, and is activated when the file has a .json
-// file extension. In this case, the file contents are run through
-// json.Unmarshal into the target type.
-//
-// Map Types
-//
-// Maps with string keys are given special treatment. When used, the filename
-// can be treated as a glob pattern, provided it includes a "*" character.
-//
-// When a glob pattern is detected, the key is treated as the filename (relative
-// to dir) as the key and the value will be decoded as described above.
-//
-// If a pattern is not detected, then the value will be decoded directly like
-// other structs.
-func LoadTestData(t *testing.T, dir string, output ...interface{}) {
+// The values in the map can be either string, []byte or structs as described
+// above.
+func Load(t T, dir string, values ...any) {
 	t.Helper()
 
-	for _, v := range output {
-		if err := loadDir(dir, v); err != nil {
-			t.Fatal(err)
-		}
+	if err := loadDirs(context.TODO(), []string{dir}, values...); err != nil {
+		t.Fatal(err.Error())
 	}
 }
 
-func loadDir(dir string, output interface{}) error {
+// LoadDirs is the same as Load but accepts multiple input directories, which
+// can be used to set up test cases from a common/shared location while allowing
+// an individual test-case to include it's own specific configuration.
+func LoadDirs(t T, dirs []string, values ...any) {
+	t.Helper()
+
+	if err := loadDirs(context.TODO(), dirs, values...); err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
+// Assert ensures that all the fields within the struct values match what is on
+// disk, using reflection to Load a fresh copy and then comparing the 2 structs
+// using go-cmp to perform the equality check.
+//
+// When the "test.update-golden" flag is provided, the contents of each value
+// struct will be persisted to disk instead. This allows any test to easily
+// update their "golden files" and also do the assertion transparently.
+func Assert(t T, dir string, values ...any) {
+	t.Helper()
+
+	if err := assert(context.TODO(), dir, values...); err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
+func assert(ctx context.Context, dir string, values ...any) error {
+	if len(values) == 0 {
+		return errors.New("at least 1 value required")
+	}
+
+	for _, actual := range values {
+		if updateGolden {
+			if err := saveDir(dir, actual); err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		expected := reflect.New(reflect.TypeOf(actual).Elem()).Interface()
+
+		if err := loadDirs(ctx, []string{dir}, expected); err != nil {
+			return fmt.Errorf("%T: %w", actual, err)
+		}
+
+		if !cmp.Equal(expected, actual) {
+			return errors.New(cmp.Diff(expected, actual))
+		}
+	}
+
+	return nil
+}
+
+// loads multiple input dirs into multiple output values
+func loadDirs(ctx context.Context, inputs []string, outputs ...any) error {
+	if len(outputs) == 0 {
+		return errors.New("at least 1 output required")
+	}
+
+	for _, output := range outputs {
+		if err := loadDir(ctx, inputs, output); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// loads multiple input dirs into a single output value
+func loadDir(ctx context.Context, inputs []string, output any) error {
 	if output == nil {
 		return errors.New("output cannot be nil")
 	}
 
 	if k := reflect.TypeOf(output).Kind(); k != reflect.Ptr {
-		return fmt.Errorf("output must be pointer value, instead got %s", k)
+		return fmt.Errorf("output must be a pointer, instead got %s", k)
 	}
 
 	typ := reflect.TypeOf(output).Elem()
@@ -87,65 +140,66 @@ func loadDir(dir string, output interface{}) error {
 
 		tags, err := structtag.Parse(string(field.Tag))
 		if err != nil {
-			return fmt.Errorf("%s: failed to parse struct tag %s: %w", field.Name, tagName, err)
+			return fmt.Errorf("%s: failed to parse struct tags: %w", field.Name, err)
 		}
 
 		tag, err := tags.Get(tagName)
 		if err != nil {
 			continue
-		}
-
-		if tag.Name == "" || tag.Name == "-" {
+		} else if tag.Name == "" || tag.Name == "-" {
 			continue
 		}
 
-		file := filepath.Join(dir, tag.Name)
+		for _, input := range inputs {
+			file := filepath.Join(input, tag.Name)
 
-		if isMap(field.Type) && strings.Contains(tag.Name, "*") {
-			matches, err := filepath.Glob(file)
-			if err != nil {
-				return fmt.Errorf("%s: failed to list files %s: %w", field.Name, file, err)
-			}
-
-			m := reflect.MakeMap(field.Type)
-
-			for _, match := range matches {
-				rel, err := filepath.Rel(dir, match)
+			if isMap(field.Type) {
+				matches, err := filepath.Glob(file)
 				if err != nil {
-					return fmt.Errorf("%s: failed to resolve file %s: %w", field.Name, match, err)
+					return fmt.Errorf("%s: failed to list files %s: %w", field.Name, file, err)
 				}
 
-				key := reflect.ValueOf(rel)
-				value := reflect.New(m.Type().Elem()).Elem()
+				m := reflect.MakeMap(field.Type)
 
-				if err := loadFile(match, field, value, tag); err != nil {
-					return err
+				for _, match := range matches {
+					rel, err := filepath.Rel(input, match)
+					if err != nil {
+						return fmt.Errorf("%s: failed to resolve file %s: %w", field.Name, match, err)
+					}
+
+					key := reflect.ValueOf(rel)
+					value := reflect.New(m.Type().Elem()).Elem()
+
+					if err := loadFile(match, field, value, tag); err != nil {
+						return err
+					}
+
+					m.SetMapIndex(key, value)
 				}
 
-				m.SetMapIndex(key, value)
+				val.Field(i).Set(m)
+				continue
 			}
 
-			val.Field(i).Set(m)
-			continue
-		}
-
-		if err := loadFile(file, field, val.Field(i), tag); err != nil {
-			return err
+			if err := loadFile(file, field, val.Field(i), tag); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
+// load a single struct field
 func loadFile(file string, field reflect.StructField, value reflect.Value, tag *structtag.Tag) error {
 	f, err := openTagFile(file, tag)
 	if err != nil {
-		return fmt.Errorf("%s: failed to open file %s: %w", field.Name, file, err)
+		return fmt.Errorf("%s: %w", field.Name, err)
 	} else if f == nil {
 		return nil
 	}
 
-	data, err := ioutil.ReadAll(f)
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return fmt.Errorf("%s: failed to read file %s: %w", field.Name, file, err)
 	}
@@ -159,76 +213,29 @@ func loadFile(file string, field reflect.StructField, value reflect.Value, tag *
 		return nil
 	}
 
-	// structured types
-	switch filepath.Ext(file) {
-	case ".json":
-		p := reflect.New(value.Type())
-		p.Elem().Set(value) // preserve any prior values
-		if err := json.Unmarshal(data, p.Interface()); err != nil {
-			return fmt.Errorf("%s: failed to parse contents of %s as JSON: %w", field.Name, file, err)
-		}
-		value.Set(p.Elem()) // overwrite with the value modified by json Unmarshal
-		return nil
-
-	case ".yaml":
-		p := reflect.New(value.Type())
-		p.Elem().Set(value) // preserve any prior values
-		if err := yaml.Unmarshal(data, p.Interface()); err != nil {
-			return fmt.Errorf("%s: failed to parse contents of %s as JSON: %w", field.Name, file, err)
-		}
-		value.Set(p.Elem()) // overwrite with the value modified by json Unmarshal
-		return nil
+	ext := filepath.Ext(file)
+	codec, err := codec.Get(ext)
+	if err != nil {
+		return fmt.Errorf("%s: failed to get codec for file extension %q", field.Name, ext)
 	}
 
-	return fmt.Errorf("%s: file opened, but not decoded", field.Name)
-}
-
-// SaveTestData takes data from the input structs and saves it to disk, making
-// this the reverse of LoadTestData.
-//
-// A common pattern for defining test cases is using "golden files", which are
-// test fixtures that are automatically generated when code is known to be
-// working in a specific way. Future tests are run and the output is compared
-// against these test fixtures to detect unintended differences.
-//
-// By default, a file will always be written, even if that file turns out to be
-// empty after encoding it. If you would prefer these empty files to not be
-// present at all, include the "omitempty" option as well.
-//
-//   testdata:"error.txt,omitempty"
-//
-// Raw Types
-//
-// The types string and []byte are written to disk as-is.
-//
-// Struct Types
-//
-// Structs are encoded using json.MarshalIndent.
-//
-// Map Types
-//
-// Similar to LoadTestData, maps with string keys are given special treatment.
-// If the path includes a "*" (a glob pattern), then the keys are treated as
-// paths relative to dir and the data is encoded as described above.
-//
-// If a glob pattern is not used, then the value will be encoded like structs.
-func SaveTestData(t *testing.T, dir string, input ...interface{}) {
-	t.Helper()
-
-	for _, v := range input {
-		if err := saveDir(dir, v); err != nil {
-			t.Fatal(err)
-		}
+	p := reflect.New(value.Type())
+	p.Elem().Set(value) // preserve any prior values
+	if err := codec.Unmarshal(data, p.Interface()); err != nil {
+		return fmt.Errorf("%s: failed to unmarshal %s: %w", field.Name, file, err)
 	}
+	value.Set(p.Elem()) // overwrite with the updated value
+	return nil
 }
 
-func saveDir(dir string, input interface{}) error {
+// persist an input struct to dir on disk
+func saveDir(dir string, input any) error {
 	if input == nil {
-		return errors.New("output cannot be nil")
+		return errors.New("input cannot be nil")
 	}
 
 	if k := reflect.TypeOf(input).Kind(); k != reflect.Ptr {
-		return fmt.Errorf("output must be pointer value, instead got %s", k)
+		return fmt.Errorf("input must be a pointer, instead got %s", k)
 	}
 
 	typ := reflect.TypeOf(input).Elem()
@@ -243,14 +250,12 @@ func saveDir(dir string, input interface{}) error {
 
 		tag, err := tags.Get(tagName)
 		if err != nil {
-			return fmt.Errorf("%s: failed to parse struct tag: %w", field.Name, err)
-		}
-
-		if tag.Name == "" || tag.Name == "-" {
+			continue
+		} else if tag.Name == "" || tag.Name == "-" {
 			continue
 		}
 
-		if isMap(field.Type) && strings.Contains(tag.Name, "*") {
+		if isMap(field.Type) {
 			iter := val.Field(i).MapRange()
 
 			for iter.Next() {
@@ -258,8 +263,7 @@ func saveDir(dir string, input interface{}) error {
 				v := iter.Value()
 
 				file := filepath.Join(dir, k.String())
-
-				if err := saveFile(file, field, v, tag); err != nil {
+				if err := saveFile(file, field, v); err != nil {
 					return err
 				}
 			}
@@ -268,8 +272,7 @@ func saveDir(dir string, input interface{}) error {
 		}
 
 		file := filepath.Join(dir, tag.Name)
-
-		if err := saveFile(file, field, val.Field(i), tag); err != nil {
+		if err := saveFile(file, field, val.Field(i)); err != nil {
 			return err
 		}
 	}
@@ -277,37 +280,56 @@ func saveDir(dir string, input interface{}) error {
 	return nil
 }
 
-func saveFile(file string, field reflect.StructField, val reflect.Value, tag *structtag.Tag) error {
+// save a single field to disk
+func saveFile(file string, field reflect.StructField, val reflect.Value) error {
 	data, err := encode(file, field, val)
 	if err != nil {
 		return fmt.Errorf("%s: failed to encode file %s: %w", field.Name, file, err)
 	}
 
-	if len(data) > 0 {
+	if len(data) == 0 {
+		if err := os.Remove(file); err != nil {
+			if !os.IsNotExist(err) {
+				return fmt.Errorf("%s: failed to delete file %s: %s", field.Name, file, err)
+			}
+		}
+	} else {
 		dir := filepath.Dir(file)
 
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("%s: failed to create dir %s: %s", field.Name, dir, err)
 		}
 
-		if err := ioutil.WriteFile(file, data, 0644); err != nil {
+		if err := os.WriteFile(file, data, 0644); err != nil {
 			return fmt.Errorf("%s: failed to write file %s: %s", field.Name, file, err)
-		}
-	} else if tag.HasOption("omitempty") {
-		if err := os.Remove(file); err != nil {
-			if !os.IsNotExist(err) {
-				return fmt.Errorf("%s: failed to delete file %s: %s", field.Name, file, err)
-			}
 		}
 	}
 
 	return nil
 }
 
+func encode(file string, field reflect.StructField, val reflect.Value) ([]byte, error) {
+	if val.IsZero() {
+		return nil, nil
+	} else if isBytes(val.Type()) {
+		return val.Bytes(), nil
+	} else if isString(val.Type()) {
+		return []byte(val.String()), nil
+	}
+
+	ext := filepath.Ext(file)
+	codec, err := codec.Get(ext)
+	if err != nil {
+		return nil, fmt.Errorf("%s: failed to get codec for file extension %q", field.Name, ext)
+	}
+	return codec.Marshal(val.Interface())
+}
+
+// open a file, suppressing "not found" errors if the file is marked optional
 func openTagFile(file string, tag *structtag.Tag) (*os.File, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		if tag.HasOption("optional") && os.IsNotExist(err) {
+		if os.IsNotExist(err) {
 			return nil, nil
 		}
 		return nil, err
@@ -325,21 +347,4 @@ func isBytes(targetType reflect.Type) bool {
 
 func isMap(targetType reflect.Type) bool {
 	return targetType.Kind() == reflect.Map && isString(targetType.Key())
-}
-
-func encode(file string, field reflect.StructField, val reflect.Value) ([]byte, error) {
-	if val.IsZero() {
-		return nil, nil
-	} else if isBytes(val.Type()) {
-		return val.Bytes(), nil
-	} else if isString(val.Type()) {
-		return []byte(val.String()), nil
-	}
-
-	switch filepath.Ext(file) {
-	case ".json":
-		return json.MarshalIndent(val.Interface(), "", "  ")
-	}
-
-	return nil, nil
 }

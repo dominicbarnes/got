@@ -1,442 +1,414 @@
 package got
 
 import (
+	"context"
 	"encoding/json"
-	"io/ioutil"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
+	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadDir(t *testing.T) {
-	spec := []struct {
-		name     string
-		dir      string
-		input    interface{}
-		expected interface{}
-		fail     bool
-	}{
-		// text
-		{
-			name:     "string",
-			dir:      "text",
-			input:    &testTextString{},
-			expected: &testTextString{Input: "hello world"},
-		},
-		{
-			name:     "bytes",
-			dir:      "text",
-			input:    &testTextBytes{},
-			expected: &testTextBytes{Input: []byte("hello world")},
-		},
-		{
-			name:     "json raw",
-			dir:      "json",
-			input:    &testJSONRaw{},
-			expected: &testJSONRaw{Input: json.RawMessage("{\n  \"hello\": \"world\"\n}")},
-		},
-		// json
-		{
-			name:  "json struct",
-			dir:   "json",
-			input: &testJSONStruct{},
-			expected: &testJSONStruct{Input: struct {
-				Hello string `json:"hello"`
-			}{"world"}},
-		},
-		{
-			name:  "json map",
-			dir:   "json",
-			input: &testJSONMap{},
-			expected: &testJSONMap{
-				Input: map[string]interface{}{"hello": "world"},
-			},
-		},
-		{
-			name: "json should not clobber",
-			dir:  "json",
-			input: &testJSONMap{
-				Input: map[string]interface{}{
-					"hello": "dave", // should be overwritten
-					"a":     "A",    // should not be deleted
-				},
-			},
-			expected: &testJSONMap{
-				Input: map[string]interface{}{
-					"hello": "world",
-					"a":     "A",
-				},
-			},
-		},
-		{
-			name:  "json invalid",
-			dir:   "json",
-			input: &testJSONInvalid{},
-			fail:  true,
-		},
-		{
-			name:     "json optional",
-			dir:      "json",
-			input:    &testJSONOptional{},
-			expected: &testJSONOptional{},
-		},
-		// yaml
-		{
-			name:  "yaml struct",
-			dir:   "yaml",
-			input: &testYAMLStruct{},
-			expected: &testYAMLStruct{Input: struct {
-				Hello string `yaml:"hello"`
-			}{"world"}},
-		},
-		{
-			name:  "yaml map",
-			dir:   "yaml",
-			input: &testYAMLMap{},
-			expected: &testYAMLMap{
-				Input: map[string]interface{}{"hello": "world"},
-			},
-		},
-		{
-			name: "yaml should not clobber",
-			dir:  "yaml",
-			input: &testYAMLMap{
-				Input: map[string]interface{}{
-					"hello": "dave", // should be overwritten
-					"a":     "A",    // should not be deleted
-				},
-			},
-			expected: &testYAMLMap{
-				Input: map[string]interface{}{
-					"hello": "world",
-					"a":     "A",
-				},
-			},
-		},
-		{
-			name:  "yaml invalid",
-			dir:   "yaml",
-			input: &testYAMLInvalid{},
-			fail:  true,
-		},
-		{
-			name:     "yaml optional",
-			dir:      "yaml",
-			input:    &testYAMLOptional{},
-			expected: &testYAMLOptional{},
-		},
-		// multiple
-		{
-			name:  "multiple",
-			dir:   "multiple",
-			input: &testMultiple{},
-			expected: &testMultiple{
-				A: "A",
-				B: []byte("B"),
-			},
-		},
-		{
-			name:  "multiple map",
-			dir:   "multiple",
-			input: &testMultipleMap{},
-			expected: &testMultipleMap{
-				Files: map[string]string{
+func TestLoad(t *testing.T) {
+	t.Run("nil value", func(t *testing.T) {
+		testLoadError(t, "text", nil, "output cannot be nil")
+	})
+
+	t.Run("unsupported types", func(t *testing.T) {
+		spec := []struct {
+			output any
+			typ    string
+		}{
+			{output: true, typ: "bool"},
+			{output: 3.14, typ: "float64"},
+			{output: 123, typ: "int"},
+			{output: time.Minute, typ: "int64"},
+			{output: struct{}{}, typ: "struct"},
+			{output: time.Now(), typ: "struct"},
+		}
+
+		for _, test := range spec {
+			t.Run(test.typ, func(t *testing.T) {
+				testLoadError(t, "text", test.output, fmt.Sprintf("output must be a pointer, instead got %s", test.typ))
+			})
+		}
+	})
+
+	t.Run("struct tags", func(t *testing.T) {
+		t.Run("invalid", func(t *testing.T) {
+			type test struct {
+				Invalid string `this is not valid`
+			}
+
+			testLoadError(t, "text", new(test), "Invalid: failed to parse struct tags: bad syntax for struct tag pair")
+		})
+
+		t.Run("missing", func(t *testing.T) {
+			type test struct {
+				Input   string `testdata:"input.txt"`
+				Missing string // intentionally missing testdata struct tag
+			}
+
+			testLoadOne(t, "text", new(test), &test{Input: "hello world"})
+		})
+
+		t.Run("empty", func(t *testing.T) {
+			type test struct {
+				Input   string `testdata:"input.txt"`
+				Missing string `testdata:""`
+			}
+
+			testLoadOne(t, "text", new(test), &test{Input: "hello world"})
+		})
+
+		t.Run("dashed", func(t *testing.T) {
+			type test struct {
+				Input   string `testdata:"input.txt"`
+				Missing string `testdata:"-"`
+			}
+
+			testLoadOne(t, "text", new(test), &test{Input: "hello world"})
+		})
+	})
+
+	t.Run("empty struct", func(t *testing.T) {
+		type test struct{}
+
+		testLoadOne(t, "text", new(test), new(test))
+	})
+
+	t.Run("string", func(t *testing.T) {
+		type test struct {
+			Input string `testdata:"input.txt"`
+		}
+
+		testLoadOne(t, "text", new(test), &test{Input: "hello world"})
+	})
+
+	t.Run("bytes", func(t *testing.T) {
+		type test struct {
+			Input []byte `testdata:"input.txt"`
+		}
+
+		testLoadOne(t, "text", new(test), &test{Input: []byte("hello world")})
+	})
+
+	t.Run("raw json", func(t *testing.T) {
+		type test struct {
+			Input json.RawMessage `testdata:"input.json"`
+		}
+
+		testLoadOne(t, "json", new(test), &test{Input: json.RawMessage("{\n  \"hello\": \"world\"\n}")})
+	})
+
+	t.Run("multiple", func(t *testing.T) {
+		type test struct {
+			A string `testdata:"a.txt"`
+			B string `testdata:"b.txt"`
+		}
+
+		testLoadOne(t, "multiple", new(test), &test{A: "A", B: "B"})
+	})
+
+	t.Run("maps", func(t *testing.T) {
+		t.Run("expand glob", func(t *testing.T) {
+			type test struct {
+				Multiple map[string]string `testdata:"*.txt"`
+			}
+
+			testLoadOne(t, "multiple", new(test), &test{
+				Multiple: map[string]string{
 					"a.txt": "A",
 					"b.txt": "B",
 				},
-			},
-		},
-		// misc
-		{
-			name:  "not pointer",
-			dir:   "text",
-			input: struct{}{},
-			fail:  true,
-		},
-		{
-			name:  "missing file",
-			dir:   "text",
-			input: &testMissing{},
-			fail:  true,
-		},
-		{
-			name:     "missing optional file",
-			dir:      "text",
-			input:    &testMissingOptional{},
-			expected: &testMissingOptional{},
-		},
-		{
-			name:     "missing struct tag",
-			dir:      "text",
-			input:    &testMissingStructTag{},
-			expected: &testMissingStructTag{},
-		},
-		{
-			name:     "empty struct tag",
-			dir:      "text",
-			input:    &testEmptyStructTag{},
-			expected: &testEmptyStructTag{},
-		},
-		{
-			name:     "dash struct tag",
-			dir:      "text",
-			input:    &testDashStructTag{},
-			expected: &testDashStructTag{},
-		},
-		{
-			name: "nil",
-			dir:  "text",
-			fail: true,
-		},
+			})
+		})
+
+		t.Run("single file", func(t *testing.T) {
+			type test struct {
+				Multiple map[string]string `testdata:"a.txt"`
+			}
+
+			testLoadOne(t, "multiple", new(test), &test{
+				Multiple: map[string]string{
+					"a.txt": "A",
+				},
+			})
+		})
+
+		t.Run("bytes", func(t *testing.T) {
+			type test struct {
+				Multiple map[string][]byte `testdata:"a.txt"`
+			}
+
+			testLoadOne(t, "multiple", new(test), &test{
+				Multiple: map[string][]byte{
+					"a.txt": []byte("A"),
+				},
+			})
+		})
+
+		t.Run("glob without matches", func(t *testing.T) {
+			type test struct {
+				Multiple map[string]string `testdata:"*.log"`
+			}
+
+			testLoadOne(t, "multiple", new(test), &test{
+				Multiple: map[string]string{},
+			})
+		})
+	})
+
+	t.Run("json codec", func(t *testing.T) {
+		type JSONInput struct {
+			Hello string `json:"hello"`
+		}
+
+		type JSONComplex struct {
+			String string         `json:"example_string"`
+			Number float64        `json:"example_number"`
+			Bool   bool           `json:"example_boolean"`
+			Null   any            `json:"example_null"`
+			Array  []string       `json:"example_array"`
+			Object map[string]int `json:"example_object"`
+		}
+
+		t.Run("simple", func(t *testing.T) {
+			type test struct {
+				Input JSONInput `testdata:"input.json"`
+			}
+
+			testLoadOne(t, "json", new(test), &test{
+				Input: JSONInput{Hello: "world"},
+			})
+		})
+
+		t.Run("complex", func(t *testing.T) {
+			type test struct {
+				Complex JSONComplex `testdata:"complex.json"`
+			}
+
+			testLoadOne(t, "json", new(test), &test{
+				Complex: JSONComplex{
+					String: "hello world",
+					Number: 3.14,
+					Bool:   true,
+					Null:   nil,
+					Array:  []string{"a", "b", "c", "d"},
+					Object: map[string]int{"abc": 123, "def": 456},
+				},
+			})
+		})
+
+		t.Run("unmarshal error", func(t *testing.T) {
+			type test struct {
+				Input struct {
+					Hello int `json:"hello"` // string "hello world" is not a valid int
+				} `testdata:"input.json"`
+			}
+
+			testLoadError(t, "json", new(test), "Input: failed to unmarshal testdata/json/input.json: json: cannot unmarshal string into Go struct field .hello of type int")
+		})
+	})
+
+	t.Run("unknown codec", func(t *testing.T) {
+		// while we're using a well-known format YAML here, there is no
+		// batteries-included YAML codec, so this test should fail
+		type YAMLInput struct {
+			Hello string `yaml:"hello"`
+		}
+
+		type test struct {
+			Input YAMLInput `testdata:"input.yaml"`
+		}
+
+		testLoadError(t, "yaml", new(test), `Input: failed to get codec for file extension ".yaml"`)
+	})
+
+	t.Run("no outputs", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper()
+		mockT.EXPECT().Fatal("at least 1 output required")
+
+		Load(mockT, filepath.Join("testdata", "text"))
+	})
+
+	t.Run("multiple outputs", func(t *testing.T) {
+		type test1 struct {
+			A string `testdata:"a.txt"`
+		}
+
+		type test2 struct {
+			B string `testdata:"b.txt"`
+		}
+
+		testLoadMany(t, "multiple",
+			[]any{new(test1), new(test2)},
+			[]any{&test1{A: "A"}, &test2{B: "B"}},
+		)
+	})
+}
+
+func TestLoadDirs(t *testing.T) {
+	type test struct {
+		A string `testdata:"a.txt"`
+		B string `testdata:"b.txt"`
 	}
 
-	for _, test := range spec {
-		t.Run(test.name, func(t *testing.T) {
-			err := loadDir(filepath.Join("testdata", test.dir), test.input)
-			if test.fail {
-				require.Error(t, err)
-			} else {
+	ctrl := gomock.NewController(t)
+
+	mockT := NewMockT(ctrl)
+	mockT.EXPECT().Helper()
+
+	var actual test
+	LoadDirs(mockT, []string{"testdata/multiple-dirs/dir1", "testdata/multiple-dirs/dir2"}, &actual)
+
+	require.EqualValues(t, test{A: "A", B: "B"}, actual)
+}
+
+func TestAssert(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		type test struct {
+			Input string `testdata:"input.txt"`
+		}
+
+		ctrl := gomock.NewController(t)
+
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper()
+
+		Assert(mockT, "testdata/text", &test{Input: "hello world"})
+	})
+
+	t.Run("fail", func(t *testing.T) {
+		type test struct {
+			Input string `testdata:"input.txt"`
+		}
+
+		ctrl := gomock.NewController(t)
+
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper()
+		mockT.EXPECT().Fatal(gomock.Any())
+
+		Assert(mockT, "testdata/text", &test{Input: "foo bar"})
+	})
+
+	t.Run("update", func(t *testing.T) {
+		spec := []struct {
+			name     string
+			expected any
+			fail     bool
+		}{
+			{
+				name: "string",
+				expected: &struct {
+					Input string `testdata:"input.txt"`
+				}{
+					Input: "hello world",
+				},
+			},
+			{
+				name: "bytes",
+				expected: &struct {
+					Input []byte `testdata:"input.txt"`
+				}{
+					Input: []byte("hello world"),
+				},
+			},
+			{
+				name: "json raw",
+				expected: &struct {
+					Input json.RawMessage `testdata:"input.json"`
+				}{
+					Input: json.RawMessage(`{}`),
+				},
+			},
+			{
+				name: "json struct",
+				expected: &struct {
+					Input struct {
+						Hello string `json:"hello"`
+					} `testdata:"input.json"`
+				}{
+					Input: struct {
+						Hello string `json:"hello"`
+					}{
+						Hello: "world",
+					},
+				},
+			},
+			{
+				name: "map",
+				expected: &struct {
+					Files map[string]string `testdata:"*.txt"`
+				}{
+					Files: map[string]string{"a.txt": "A", "b.txt": "B"},
+				},
+			},
+		}
+
+		for _, test := range spec {
+			t.Run(test.name, func(t *testing.T) {
+				updateGolden = true
+				t.Cleanup(func() { updateGolden = false })
+
+				ctx := context.TODO()
+
+				dir, err := os.MkdirTemp("", test.name)
 				require.NoError(t, err)
-				require.EqualValues(t, test.expected, test.input)
-			}
-		})
-	}
-}
 
-func TestSaveTestData(t *testing.T) {
-	spec := []struct {
-		name     string
-		expected interface{}
-		fail     bool
-	}{
-		{
-			name:     "string",
-			expected: &testTextString{Input: "hello world"},
-		},
-		{
-			name:     "bytes",
-			expected: &testTextBytes{Input: []byte("hello world")},
-		},
-		{
-			name:     "json raw",
-			expected: &testJSONRaw{Input: json.RawMessage("{\n  \"hello\": \"world\"\n}")},
-		},
-		{
-			name: "json struct",
-			expected: &testJSONStruct{Input: struct {
-				Hello string "json:\"hello\""
-			}{"world"}},
-		},
-		{
-			name: "json map",
-			expected: &testJSONMap{
-				Input: map[string]interface{}{"hello": "world"},
-			},
-		},
-		{
-			name: "multiple",
-			expected: &testMultipleMap{
-				Files: map[string]string{
-					"a.txt": "A",
-					"b.txt": "B",
-				},
-			},
-		},
-	}
+				t.Cleanup(func() { os.RemoveAll(dir) })
 
-	for _, test := range spec {
-		t.Run(test.name, func(t *testing.T) {
-			dir, err := ioutil.TempDir("", test.name)
-			require.NoError(t, err)
+				if test.fail {
+					require.Error(t, saveDir(dir, test.expected))
+				} else {
+					require.NoError(t, saveDir(dir, test.expected))
 
-			if test.fail {
-				require.Error(t, saveDir(dir, test.expected))
-			} else {
-				require.NoError(t, saveDir(dir, test.expected))
-
-				actual := reflect.New(reflect.TypeOf(test.expected).Elem()).Interface()
-				require.NoError(t, loadDir(dir, actual))
-				require.EqualValues(t, test.expected, actual)
-			}
-		})
-	}
-
-	t.Run("omitempty", func(t *testing.T) {
-		dir, err := ioutil.TempDir("", "")
-		require.NoError(t, err)
-
-		type TestCase struct {
-			Output string `testdata:"output.txt,optional,omitempty"`
+					actual := reflect.New(reflect.TypeOf(test.expected).Elem()).Interface()
+					require.NoError(t, loadDir(ctx, []string{dir}, actual))
+					require.EqualValues(t, test.expected, actual)
+				}
+			})
 		}
-
-		expected := TestCase{Output: "hello world"}
-		require.NoError(t, saveDir(dir, &expected))
-
-		expected.Output = "" // trigger a delete
-		require.NoError(t, saveDir(dir, &expected))
-
-		var actual TestCase
-		require.NoError(t, loadDir(dir, &actual))
-
-		require.EqualValues(t, expected, actual)
-
-		_, err = os.Open(filepath.Join(dir, "output.txt"))
-		require.True(t, os.IsNotExist(err), "file should have been deleted")
-	})
-
-	t.Run("omitempty json", func(t *testing.T) {
-		dir, err := ioutil.TempDir("", "")
-		require.NoError(t, err)
-
-		type TestCase struct {
-			Output map[string]interface{} `testdata:"output.json,optional,omitempty"`
-		}
-
-		expected := TestCase{Output: map[string]interface{}{"hello": "world"}}
-		require.NoError(t, saveDir(dir, &expected))
-
-		expected.Output = nil // trigger a delete
-		require.NoError(t, saveDir(dir, &expected))
-
-		var actual TestCase
-		require.NoError(t, loadDir(dir, &actual))
-
-		require.EqualValues(t, expected, actual)
-
-		_, err = os.Open(filepath.Join(dir, "output.json"))
-		require.True(t, os.IsNotExist(err), "file should have been deleted")
 	})
 }
 
-// text
+func testLoadOne(t *testing.T, input string, output, expected any) {
+	ctrl := gomock.NewController(t)
 
-type testTextString struct {
-	Input string `testdata:"input.txt"`
+	mockT := NewMockT(ctrl)
+	mockT.EXPECT().Helper()
+
+	Load(mockT, filepath.Join("testdata", input), output)
+
+	require.EqualValues(t, expected, output)
 }
 
-type testTextBytes struct {
-	Input []byte `testdata:"input.txt"`
+func testLoadMany(t *testing.T, input string, output, expected []any) {
+	ctrl := gomock.NewController(t)
+
+	mockT := NewMockT(ctrl)
+	mockT.EXPECT().Helper()
+
+	Load(mockT, filepath.Join("testdata", input), output...)
+
+	require.EqualValues(t, expected, output)
 }
 
-// json
+func testLoadError(t *testing.T, input string, output any, expectedErr string) {
+	ctrl := gomock.NewController(t)
 
-type testJSONRaw struct {
-	Input json.RawMessage `testdata:"input.json"`
-}
+	mockT := NewMockT(ctrl)
+	mockT.EXPECT().Helper()
+	mockT.EXPECT().Fatal(expectedErr)
 
-type testJSONMap struct {
-	Input map[string]interface{} `testdata:"input.json"`
-}
-
-type testJSONStruct struct {
-	Input struct {
-		Hello string `json:"hello"`
-	} `testdata:"input.json"`
-}
-
-type testJSONInvalid struct {
-	Input struct{} `testdata:"invalid.json"`
-}
-
-type testJSONOptional struct {
-	Input struct{} `testdata:"does-not-exist.json,optional"`
-}
-
-// yaml
-
-type testYAMLMap struct {
-	Input map[string]interface{} `testdata:"input.yaml"`
-}
-
-type testYAMLStruct struct {
-	Input struct {
-		Hello string `yaml:"hello"`
-	} `testdata:"input.yaml"`
-}
-
-type testYAMLInvalid struct {
-	Input struct{} `testdata:"invalid.yaml"`
-}
-
-type testYAMLOptional struct {
-	Input struct{} `testdata:"does-not-exist.yaml,optional"`
-}
-
-// multiple
-
-type testMultiple struct {
-	A string `testdata:"a.txt"`
-	B []byte `testdata:"b.txt"`
-}
-
-type testMultipleMap struct {
-	Files map[string]string `testdata:"*.txt"`
-}
-
-// misc
-
-type testMissing struct {
-	Input string `testdata:"does-not-exist"`
-}
-
-type testMissingOptional struct {
-	Input string `testdata:"does-not-exist,optional"`
-}
-
-type testMissingStructTag struct {
-	Missing string
-}
-
-type testEmptyStructTag struct {
-	Empty string `testdata:""`
-}
-
-type testDashStructTag struct {
-	Empty string `testdata:"-"`
-}
-
-func ExampleLoadTestData() {
-	t := new(testing.T) // not necessary in normal test code
-
-	type TestCase struct {
-		Input    string `testdata:"input.txt"`
-		Expected string `testdata:"expected.txt"`
-	}
-
-	var test TestCase
-	LoadTestData(t, "testdata", &test)
-
-	actual := strings.ToUpper(test.Input)
-	if actual != test.Expected {
-		t.Fatalf("actual value '%s' did not match expected value '%s'", actual, test.Expected)
-	}
-}
-
-func ExampleLoadTestData_jSON() {
-	t := new(testing.T) // not necessary in normal test code
-
-	type Input struct {
-		Text string `json:"text"`
-	}
-
-	type Output struct {
-		Text string `json:"text"`
-	}
-
-	type TestCase struct {
-		Input    Input  `testdata:"input.json"`
-		Expected Output `testdata:"expected.json"`
-	}
-
-	var test TestCase
-	LoadTestData(t, "testdata", &test)
-
-	actual := strings.ToUpper(test.Input.Text)
-	if actual != test.Expected.Text {
-		t.Fatalf("actual value '%s' did not match expected value '%s'", actual, test.Expected.Text)
-	}
+	Load(mockT, filepath.Join("testdata", input), output)
 }
