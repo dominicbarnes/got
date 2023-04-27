@@ -4,8 +4,8 @@
 
 > Pronounced like "goatee".
 
-This package seeks to reduce boilerplate in tests, making it easier to write
-more and better tests, particularly in a way that follows best-practices.
+This package seeks to reduce boilerplate in tests, making it easier to write more
+and better tests, particularly in a way that follows best-practices.
 
 
 ## File-driven tests (aka: testdata)
@@ -19,13 +19,13 @@ fuzz testing of non-trivial functions, embedding all that state into code can
 become a mess, and (in my experience) less readable the more time has passed.
 
 While opening up files is not hard on it's own, there is usually more to it than
-that. You likely need to read the contents, sometimes you decode it as JSON.
-Each of these adds more code that distracts from your test. Beyond dealing with
-single files, consider reading directories, maybe even recursively. All of that
-is just boilerplate, and just serves to distract from the test itself.
+that. You likely need to read the contents, sometimes you decode it as JSON. Each
+of these adds more code that distracts from your test. Beyond dealing with single
+files, consider reading directories, maybe even recursively. All of that is just
+boilerplate, and just serves to distract from the test itself.
 
-This package includes `got.LoadTestData` for loading files on disk into an
-annotated struct to eliminate this boilerplate from your own code.
+This package includes `got.Load` for loading files on disk into an annotated
+struct to eliminate this boilerplate from your own code.
 
 ```golang
 package mypackage
@@ -36,35 +36,35 @@ import (
   "testing"
 )
 
-// input.txt
+// testdata/input.txt
 // hello world
 
-// expected.txt
+// testdata/expected.txt
 // HELLO WORLD
 
 func TestSomething(t *testing.T) {
-  // define the test
+  // define test case
   type Test struct {
     Input    string `testdata:"input.txt"`
     Expected string `testdata:"expected.txt"`
   }
 
-  // load the test environment
+  // load test fixtures
   var test Test
-  got.LoadTestData(t, "testdata", &test)
+  got.Load(t, "testdata", &test)
 
   // run the code
   actual := strings.ToUpper(test.Input)
 
-  // test the expectations
+  // run test assertions
   if actual != test.Expected {
     t.Fatalf(`expected "%s", got "%s"`, test.Expected, actual)
   }
 }
 ```
 
-Admittedly, this is a contrived example, but it the test is reduced down to
-exactly what is being tested, and nothing else.
+This is a contrived example, but the test code itself is pretty clear, without
+much distraction.
 
 Beyond this, there is support for reading JSON files and unmarshalling them
 automatically and without any additional boilerplate:
@@ -86,13 +86,13 @@ import (
 // {"a":"HELLO","b":"WORLD"}
 
 func TestSomething(t *testing.T) {
-  // define the test
+  // define test cases
   type Test struct {
     Input    map[string]string `testdata:"input.json"`
     Expected map[string]string `testdata:"expected.json"`
   }
 
-  // load the test environment
+  // load test fixtures
   var test Test
   got.LoadTestData(t, "testdata", &test)
 
@@ -102,15 +102,16 @@ func TestSomething(t *testing.T) {
     actual[k] = strings.ToUpper(v)
   }
 
-  // test the expectations
+  // run test assertions
   if !reflect.DeepEqual(actual, test.Expected) {
     t.Fatalf(`expected "%+v", got "%+v"`, test.Expected, actual)
   }
 }
 ```
 
-This library supports decoding `.json` files into structs, maps and other types
-via `json.Unmarshal`.
+Out of the box, this library supports decoding `.json`, `.yml` and `.yaml` files
+into structs, maps and other types automatically. You can define your own codecs
+using `codec.Register`.
 
 To go a step further, imagine you have a fairly complex output that you want to
 test, such as if you're writing some ETL code or operating on binary data.
@@ -121,8 +122,8 @@ be making it easy to write many tests all in the same format, akin to what
 [table-driven tests][table-driven-tests] offer for simpler tests.
 
 One approach is to have `testdata/` and have subdirectories for each test, for
-example `testdata/some_input_gets_some_output/`. Enter `got.ListSubDirs` which
-is just a convenience helper for listing out these types of test cases:
+example `testdata/some_input_gets_some_output/`. Enter `got.TestSuite` which is
+just a helper for executing a series of tests using sub-directories.
 
 ```golang
 package mypackage
@@ -134,42 +135,44 @@ import (
 )
 
 func TestSomething(t *testing.T) {
-  // define the test
+  // define test cases
   type Test struct {
     Input    string `testdata:"input.txt"`
     Expected string `testdata:"expected.txt"`
   }
 
-  // run the exact same test with different inputs (no copy-paste!)
-  for _, testName := range got.ListSubDirs(t, "testdata") {
-    t.Run(testName, func (t *testing.T) {
-      testDir := filepath.Join("testdata", testName)
-
-      // load the test environment
+  // define test suite
+  suite := got.TestSuite{
+    Dir: "testdata",
+    TestFunc: func (t *testing.T, c got.TestCase) {
+      // load test fixtures
       var test Test
-      got.LoadTestData(t, "testdata", &test)
+      c.Load(t, &test)
 
       // run the code
       actual := strings.ToUpper(test.Input)
-
-      // test the expectations
+      
+      // run test assertions
       if actual != test.Expected {
         t.Fatalf(`expected "%s", got "%s"`, test.Expected, actual)
       }
-    })
+    },
   }
+
+  // run the test suite
+  suite.Run(t)
 }
 ```
 
 The next pattern that this library facilitates is [golden files][golden-files],
 which are generated when your code is known to be working a particular way, then
 saved somewhere that will be read from later when running later tests. An
-example of this is HTTP recording, but beyond this can be applied broadly.
+example of this is HTTP recording, but the possibilities are quite broad.
 
-Enter `got.SaveTestData`, which is the opposite of `got.LoadTestData` in that it
-takes your annotated struct and then saves the data back to disk in the same
-format as it would be read. Generally, the only thing you need to treat as
-"golden" are the outputs, so we will define 2 structs:
+Enter `got.Assert`, which is the companion to `got.Load` in that it takes your
+annotated struct and then saves the data back to disk in the same format as it
+would be read. Generally, the only thing you need to treat as "golden" are the
+outputs, so we will define 2 structs:
 
 ```golang
 package mypackage
@@ -187,38 +190,33 @@ var updateGolden = flag.Bool("update-golden", false, "Update golden test fixture
 func TestSomething(t *testing.T) {
   // define the test inputs
   type Test struct {
-    Input    string `testdata:"input.txt"`
+    Input string `testdata:"input.txt"`
   }
 
-  // define the expectations (separate here so we can save them)
+  // define the expectations
   type Expected struct {
     Output string `testdata:"expected.txt"`
   }
 
-  // run the exact same test with different inputs (no copy-paste!)
-  for _, testName := range got.ListSubDirs(t, "testdata") {
-    t.Run(testName, func (t *testing.T) {
-      testDir := filepath.Join("testdata", testName)
-
-      // load the test environment
+  // define test suite
+  suite := got.TestSuite{
+    Dir: "testdata",
+    TestFunc: func (t *testing.T, c got.TestCase) {
+      // load test fixtures
       var test Test
-      got.LoadTestData(t, "testdata", &test)
+      c.Load(t, &test)
 
       // run the code
       actual := strings.ToUpper(test.Input)
-
-      if *updateGolden {
-        // save the outputs back to disk
-        // (run again without -update-golden to perform an actual test)
-        got.SaveTestData(&Expected{Output: actual})
-      } else {
-        // test the expectations
-        if actual != expected.Output {
-          t.Fatalf(`expected "%s", got "%s"`, expected.Output, actual)
-        }
-      }
-    })
+      
+      // by default, run test assertions
+      // when -update-golden is used, save the golden outputs to disk
+      got.Assert(&Expected{Output: actual})
+    },
   }
+
+  // run the test suite
+  suite.Run(t)
 }
 ```
 
