@@ -7,9 +7,12 @@ var registry map[string]Codec
 func init() {
 	registry = make(map[string]Codec)
 
-	Register(".json", &JSONCodec{
-		Indent: "  ",
-	})
+	json := JSONCodec{Indent: "  "}
+	Register(".json", &json)
+
+	yaml := YAMLCodec{}
+	Register(".yaml", &yaml)
+	Register(".yml", &yaml)
 }
 
 func Register(ext string, codec Codec) {
