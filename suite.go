@@ -3,6 +3,7 @@ package got
 import (
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -10,6 +11,10 @@ import (
 type TestCase struct {
 	// Name is the base name for this test case (excluding any parent names).
 	Name string
+
+	// Skip indicates that the test should be skipped. This is indicated to the
+	// TestSuite by having a directory name with a ".skip" suffix.
+	Skip bool
 
 	// Dir is the base directory for this test case.
 	Dir string
@@ -72,11 +77,20 @@ func (s *TestSuite) Run(t *testing.T) {
 			Dir:  filepath.Join(s.Dir, testName),
 		}
 
+		if strings.HasSuffix(testName, ".skip") {
+			testCase.Name = strings.TrimSuffix(testName, ".skip")
+			testCase.Skip = true
+		}
+
 		if s.SharedDir != "" {
 			testCase.SharedDir = filepath.Join(s.SharedDir, testName)
 		}
 
 		t.Run(testCase.Name, func(t *testing.T) {
+			if testCase.Skip {
+				t.SkipNow()
+			}
+
 			s.TestFunc(t, testCase)
 		})
 	}

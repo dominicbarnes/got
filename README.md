@@ -7,7 +7,6 @@
 This package seeks to reduce boilerplate in tests, making it easier to write more
 and better tests, particularly in a way that follows best-practices.
 
-
 ## File-driven tests (aka: testdata)
 
 One approach to writing tests, particularly when they are complex to set up, is
@@ -23,6 +22,8 @@ that. You likely need to read the contents, sometimes you decode it as JSON. Eac
 of these adds more code that distracts from your test. Beyond dealing with single
 files, consider reading directories, maybe even recursively. All of that is just
 boilerplate, and just serves to distract from the test itself.
+
+### Load fixtures for a single test
 
 This package includes `got.Load` for loading files on disk into an annotated
 struct to eliminate this boilerplate from your own code.
@@ -65,6 +66,8 @@ func TestSomething(t *testing.T) {
 
 This is a contrived example, but the test code itself is pretty clear, without
 much distraction.
+
+### Load test fixtures into a complex type (eg: map, struct, slice)
 
 Beyond this, there is support for reading JSON files and unmarshalling them
 automatically and without any additional boilerplate:
@@ -113,6 +116,8 @@ Out of the box, this library supports decoding `.json`, `.yml` and `.yaml` files
 into structs, maps and other types automatically. You can define your own codecs
 using `codec.Register`.
 
+### Running a test for each directory (aka: suite)
+
 To go a step further, imagine you have a fairly complex output that you want to
 test, such as if you're writing some ETL code or operating on binary data.
 
@@ -151,7 +156,7 @@ func TestSomething(t *testing.T) {
 
       // run the code
       actual := strings.ToUpper(test.Input)
-      
+
       // run test assertions
       if actual != test.Expected {
         t.Fatalf(`expected "%s", got "%s"`, test.Expected, actual)
@@ -163,6 +168,8 @@ func TestSomething(t *testing.T) {
   suite.Run(t)
 }
 ```
+
+### Using golden files
 
 The next pattern that this library facilitates is [golden files][golden-files],
 which are generated when your code is known to be working a particular way, then
@@ -208,7 +215,7 @@ func TestSomething(t *testing.T) {
 
       // run the code
       actual := strings.ToUpper(test.Input)
-      
+
       // by default, run test assertions
       // when -update-golden is used, save the golden outputs to disk
       got.Assert(&Expected{Output: actual})
@@ -220,6 +227,14 @@ func TestSomething(t *testing.T) {
 }
 ```
 
+### Skipping test cases
+
+Sometimes, a test case needs to be disabled temporarily, but deleting it
+altogether may not be desirable. To accomplish this, simply rename the directory
+to have a ".skip" suffix.
+
+---
+
 Hopefully this demonstrates a bit of what can be accomplished with file-driven
 tests and golden files in particular. GoT is all about getting rid of the
 boilerplate that would otherwise obfuscate a complicated test environment. By
@@ -227,7 +242,6 @@ doing so, the intention is to make it easier to write more tests, improve test
 coverage and overall just make testing easier.
 
 Check out [godoc][godoc] for more information about the API.
-
 
 [dave-cheney-test-fixtures]: https://dave.cheney.net/2016/05/10/test-fixtures-in-
 [golden-files]: https://ieftimov.com/post/testing-in-go-golden-files/
