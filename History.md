@@ -1,4 +1,10 @@
 
+v1.1.0 / 2023-05-03
+===================
+
+  * feat(suite): add support for skipping test cases
+  * test: fixing unknown-codec test case following yaml addition
+
 v1.0.0 / 2023-04-27
 ===================
 
