@@ -217,17 +217,11 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("unknown codec", func(t *testing.T) {
-		// while we're using a well-known format YAML here, there is no
-		// batteries-included YAML codec, so this test should fail
-		type YAMLInput struct {
-			Hello string `yaml:"hello"`
-		}
-
 		type test struct {
-			Input YAMLInput `testdata:"input.yaml"`
+			Input struct{ Hello string } `testdata:"input.unknown"`
 		}
 
-		testLoadError(t, "yaml", new(test), `Input: failed to get codec for file extension ".yaml"`)
+		testLoadError(t, "unknown", new(test), `Input: failed to get codec for file extension ".unknown"`)
 	})
 
 	t.Run("no outputs", func(t *testing.T) {
