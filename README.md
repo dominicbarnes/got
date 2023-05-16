@@ -191,9 +191,6 @@ import (
   "testing"
 )
 
-// define a flag to indicate that we should update the golden files
-var updateGolden = flag.Bool("update-golden", false, "Update golden test fixtures")
-
 func TestSomething(t *testing.T) {
   // define the test inputs
   type Test struct {
