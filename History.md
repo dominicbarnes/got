@@ -1,4 +1,12 @@
 
+v1.1.1 / 2024-09-13
+===================
+
+  * fix broken tests
+  * fix lint rules
+  * add github actions to run golangci-lint
+  * Update README.md
+
 v1.1.0 / 2023-05-03
 ===================
 
