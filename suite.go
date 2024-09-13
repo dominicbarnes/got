@@ -1,7 +1,7 @@
 package got
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -101,7 +101,7 @@ func listSubDirs(t *testing.T, dir string) []string {
 		return nil
 	}
 
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("failed to read dir %s: %s", dir, err)
 	}

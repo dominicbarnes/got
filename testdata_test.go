@@ -1,3 +1,5 @@
+//go:build ignore_vet
+
 package got
 
 import (
