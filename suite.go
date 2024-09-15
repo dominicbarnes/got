@@ -7,6 +7,29 @@ import (
 	"testing"
 )
 
+// RunTestSuite is a helper for running a common test suite. The Input type
+// parameter determines what will be passed to Load, while the Output type
+// parameter determines what will be passed to Assert. The passed func accepts
+// the loaded Input and returns the Output directly.
+//
+// For more advanced cases like using TestSuite.SharedDir or situations where
+// multiple types are passed to Load, the TestSuite should be used directly.
+func RunTestSuite[Input any, Output any](t *testing.T, dir string, fn func(t *testing.T, test Input) Output) {
+	suite := TestSuite{
+		Dir: dir,
+		TestFunc: func(t *testing.T, tc TestCase) {
+			var input Input
+			tc.Load(t, &input)
+
+			output := fn(t, input)
+
+			Assert(t, tc.Dir, &output)
+		},
+	}
+
+	suite.Run(t)
+}
+
 // TestCase is used to wrap up test metadata.
 type TestCase struct {
 	// Name is the base name for this test case (excluding any parent names).
