@@ -40,13 +40,10 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("struct tags", func(t *testing.T) {
-		// FIXME: The test below causes go vet to fail, and the error cannot be
-		// suppressed, so this will just be commented out for now.
-		//
-		// I have tried using //go:build ignore_vet to suppress just this file
-		// from go vet, but that seems to cause the go test to skip it as well.
-		//
-		// t.Run("invalid", func(t *testing.T) {
+		// FIXME: go vet will not allow code with invalid struct tags, even if
+		// we are intentionally testing this behavior
+		// t.Run("invalid", func(t
+		// *testing.T) {
 		//  type test struct {
 		//      Invalid string `this is not valid`
 		//  }
@@ -257,20 +254,32 @@ func TestLoad(t *testing.T) {
 }
 
 func TestLoadDirs(t *testing.T) {
-	type test struct {
-		A string `testdata:"a.txt"`
-		B string `testdata:"b.txt"`
-	}
+	t.Run("success", func(t *testing.T) {
+		type test struct {
+			A string `testdata:"a.txt"`
+			B string `testdata:"b.txt"`
+		}
 
-	ctrl := gomock.NewController(t)
+		ctrl := gomock.NewController(t)
 
-	mockT := NewMockT(ctrl)
-	mockT.EXPECT().Helper()
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper()
 
-	var actual test
-	LoadDirs(mockT, []string{"testdata/multiple-dirs/dir1", "testdata/multiple-dirs/dir2"}, &actual)
+		var actual test
+		LoadDirs(mockT, []string{"testdata/multiple-dirs/dir1", "testdata/multiple-dirs/dir2", "testdata/unknown"}, &actual)
 
-	require.EqualValues(t, test{A: "A", B: "B"}, actual)
+		require.EqualValues(t, test{A: "A", B: "B"}, actual)
+	})
+
+	t.Run("missing arguments", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper()
+		mockT.EXPECT().Fatal("at least 1 output required")
+
+		LoadDirs(mockT, []string{"testdata/multiple-dirs/dir1", "testdata/multiple-dirs/dir2"})
+	})
 }
 
 func TestAssert(t *testing.T) {
@@ -299,6 +308,16 @@ func TestAssert(t *testing.T) {
 		mockT.EXPECT().Fatal(gomock.Any())
 
 		Assert(mockT, "testdata/text", &test{Input: "foo bar"})
+	})
+
+	t.Run("missing arguments", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper()
+		mockT.EXPECT().Fatal("at least 1 value required")
+
+		Assert(mockT, "testdata/text")
 	})
 
 	t.Run("update", func(t *testing.T) {
@@ -353,6 +372,62 @@ func TestAssert(t *testing.T) {
 					Files: map[string]string{"a.txt": "A", "b.txt": "B"},
 				},
 			},
+			{
+				name: "unknown codec",
+				expected: &struct {
+					Unknown struct {
+						Input int
+					} `testdata:"expected.unknown"`
+				}{
+					Unknown: struct {
+						Input int
+					}{
+						Input: 42,
+					},
+				},
+				fail: true,
+			},
+			{
+				name: "empty",
+				expected: &struct {
+					Output string `testdata:"output.txt"`
+					Empty  string `testdata:"-"`
+				}{},
+			},
+			{
+				name: "struct tag empty",
+				expected: &struct {
+					Output string `testdata:"output.txt"`
+					Empty  string `testdata:""`
+				}{
+					Output: "hello world",
+				},
+			},
+			{
+				name: "struct tag dash",
+				expected: &struct {
+					Output string `testdata:"output.txt"`
+					Empty  string `testdata:"-"`
+				}{
+					Output: "hello world",
+				},
+			},
+			// FIXME: go vet will not allow code with invalid struct tags, even
+			// if we are intentionally testing this behavior
+			// {
+			//  name: "struct tag invalid",
+			//  expected: &struct {
+			//      Output string `testdata:"invalid...`
+			//  }{},
+			//  fail: true,
+			// },
+			{
+				name: "struct tag missing",
+				expected: &struct {
+					Output string
+					Empty  string
+				}{},
+			},
 		}
 
 		for _, test := range spec {
@@ -367,10 +442,17 @@ func TestAssert(t *testing.T) {
 
 				t.Cleanup(func() { os.RemoveAll(dir) })
 
+				ctrl := gomock.NewController(t)
+
+				mockT := NewMockT(ctrl)
+				mockT.EXPECT().Helper()
+
 				if test.fail {
-					require.Error(t, saveDir(dir, test.expected))
+					mockT.EXPECT().Fatal(gomock.Any())
+
+					Assert(mockT, dir, test.expected)
 				} else {
-					require.NoError(t, saveDir(dir, test.expected))
+					Assert(mockT, dir, test.expected)
 
 					actual := reflect.New(reflect.TypeOf(test.expected).Elem()).Interface()
 					require.NoError(t, loadDir(ctx, []string{dir}, actual))

@@ -124,7 +124,7 @@ func loadDirs(ctx context.Context, inputs []string, outputs ...any) error {
 }
 
 // loads multiple input dirs into a single output value
-func loadDir(ctx context.Context, inputs []string, output any) error {
+func loadDir(_ context.Context, inputs []string, output any) error {
 	if output == nil {
 		return errors.New("output cannot be nil")
 	}
@@ -192,7 +192,7 @@ func loadDir(ctx context.Context, inputs []string, output any) error {
 
 // load a single struct field
 func loadFile(file string, field reflect.StructField, value reflect.Value, tag *structtag.Tag) error {
-	f, err := openTagFile(file, tag)
+	f, err := openTagFile(file)
 	if err != nil {
 		return fmt.Errorf("%s: %w", field.Name, err)
 	} else if f == nil {
@@ -325,8 +325,8 @@ func encode(file string, field reflect.StructField, val reflect.Value) ([]byte, 
 	return codec.Marshal(val.Interface())
 }
 
-// open a file, suppressing "not found" errors if the file is marked optional
-func openTagFile(file string, tag *structtag.Tag) (*os.File, error) {
+// open a file, suppressing "not found" errors
+func openTagFile(file string) (*os.File, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		if os.IsNotExist(err) {
