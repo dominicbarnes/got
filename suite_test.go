@@ -1,12 +1,27 @@
 package got
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRunTestSuite(t *testing.T) {
+	type Test struct {
+		Input string `testdata:"input.txt"`
+	}
+
+	type Expected struct {
+		Output string `testdata:"expected.txt"`
+	}
+
+	RunTestSuite[Test, Expected](t, "testdata/suite/assert", func(t *testing.T, test Test) Expected {
+		return Expected{Output: strings.ToUpper(test.Input)}
+	})
+}
 
 func TestTestSuite(t *testing.T) {
 	t.Run("single case", func(t *testing.T) {
