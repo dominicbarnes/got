@@ -28,7 +28,7 @@ type TestCase struct {
 // SharedDir automatically if applicable.
 func (c TestCase) Load(t T, values ...any) {
 	if c.SharedDir != "" {
-		LoadDirs(t, []string{c.Dir, c.SharedDir}, values...)
+		LoadDirs(t, []string{c.SharedDir, c.Dir}, values...)
 	} else {
 		Load(t, c.Dir, values...)
 	}
