@@ -1,4 +1,12 @@
 
+v1.1.2 / 2024-09-15
+===================
+
+  * docs(readme): overhaul
+  * test(suite): add coverage
+  * test(testdata): improve coverage
+  * test(codec): add coverage
+
 v1.1.1 / 2024-09-13
 ===================
 
