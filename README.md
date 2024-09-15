@@ -4,26 +4,28 @@
 
 > Pronounced like "goatee".
 
-This package seeks to reduce boilerplate in tests, making it easier to write more
-and better tests, particularly in a way that follows best-practices.
+This package is all about making tests easier to write and by improving clarity
+through removing boilerplate and code not related to test assertions.
 
-## File-driven tests (aka: testdata)
+The [Four-Phase Test][four-phase-test] paradigm, while not strictly required to
+write good tests, can help to increase clarity.
 
-One approach to writing tests, particularly when they are complex to set up, is
+## Load: test fixtures as files (aka: testdata)
+
+One approach to writing tests, particularly when they have non-trivial setup, is
 to use [file-based test fixtures][dave-cheney-test-fixtures].
 
 Embedding in code is usually a suitable option for light-medium complexity code,
 but as things grow more sophisticated, particularly for integration testing and
-fuzz testing of non-trivial functions, embedding all that state into code can
-become a mess, and (in my experience) less readable the more time has passed.
+fuzz testing, embedding all of that state into code gets messy, especially as
+time passes.
 
-While opening up files is not hard on it's own, there is usually more to it than
-that. You likely need to read the contents, sometimes you decode it as JSON. Each
-of these adds more code that distracts from your test. Beyond dealing with single
-files, consider reading directories, maybe even recursively. All of that is just
-boilerplate, and just serves to distract from the test itself.
+While opening up files is not difficult on it's own, there can be more to it
+(eg: decoding as JSON). Beyond dealing with single files, consider reading
+directories (maybe even recursively). Each new line of boilerplate like this
+increases the noise-to-signal ratio for the test.
 
-### Load fixtures for a single test
+### Text
 
 This package includes `got.Load` for loading files on disk into an annotated
 struct to eliminate this boilerplate from your own code.
@@ -43,8 +45,8 @@ import (
 // testdata/expected.txt
 // HELLO WORLD
 
-func TestSomething(t *testing.T) {
-  // define test case
+func TestUppercase(t *testing.T) {
+  // define test cases
   type Test struct {
     Input    string `testdata:"input.txt"`
     Expected string `testdata:"expected.txt"`
@@ -54,23 +56,32 @@ func TestSomething(t *testing.T) {
   var test Test
   got.Load(t, "testdata", &test)
 
-  // run the code
-  actual := strings.ToUpper(test.Input)
+  // execute the code under test
+  actual := Uppercase(test.Input)
 
-  // run test assertions
+  // perform test assertions
   if actual != test.Expected {
     t.Fatalf(`expected "%s", got "%s"`, test.Expected, actual)
   }
 }
+
+// code under test
+func Uppercase(input string) string {
+  return strings.ToUpper(input)
+}
 ```
 
-This is a contrived example, but the test code itself is pretty clear, without
-much distraction.
+While contrived, this demonstates a clear separation between test phases, making
+it easier to identify what the test is intending to cover.
 
-### Load test fixtures into a complex type (eg: map, struct, slice)
+Here, simple `string` values are used, but `[]byte` could be used and it would
+basically behave as you would expect. (raw file contents, no additional decode)
 
-Beyond this, there is support for reading JSON files and unmarshalling them
-automatically and without any additional boilerplate:
+### Decoding complex types (eg: struct, map, slice)
+
+Taking this to the next logical step, it is also possible for `got.Load` to
+unmarshal test fixtures into more sophisticated types (such as a map). The file
+extension maps to a codec (eg: JSON, YAML) to perform the decode.
 
 ```golang
 package mypackage
@@ -82,13 +93,19 @@ import (
   "testing"
 )
 
-// input.json
-// {"a":"hello","b":"world"}
+// testdata/input.json
+// {
+//     "a": "hello",
+//     "b": "world"
+// }
 
-// expected.txt
-// {"a":"HELLO","b":"WORLD"}
+// testdata/expected.json
+// {
+//     "a": "HELLO",
+//     "b": "WORLD"
+// }
 
-func TestSomething(t *testing.T) {
+func TestUppercaseMap(t *testing.T) {
   // define test cases
   type Test struct {
     Input    map[string]string `testdata:"input.json"`
@@ -99,36 +116,38 @@ func TestSomething(t *testing.T) {
   var test Test
   got.LoadTestData(t, "testdata", &test)
 
-  // run the code
-  actual := make(map[string]string)
-  for k, v := range test.Input {
-    actual[k] = strings.ToUpper(v)
-  }
+  // execute the code under test
+  actual := UppercaseMap(test.Input)
 
-  // run test assertions
+  // perform test assertions
   if !reflect.DeepEqual(actual, test.Expected) {
     t.Fatalf(`expected "%+v", got "%+v"`, test.Expected, actual)
   }
 }
+
+// code under test
+func UppercaseMap(input map[string]string) map[string]string {
+  output := make(map[string]string)
+  for k, v := range input {
+    output[k] = strings.ToUpper(v)
+  }
+  return output
+}
 ```
 
-Out of the box, this library supports decoding `.json`, `.yml` and `.yaml` files
-into structs, maps and other types automatically. You can define your own codecs
-using `codec.Register`.
+Out of the box, this library supports decoding JSON (`.json`) and YAML (`.yml`,
+`.yaml`). You can define your own codecs or override the defaults using
+`got/codec.Register`.
 
-### Running a test for each directory (aka: suite)
+## Suite: Directory-driven test cases
 
-To go a step further, imagine you have a fairly complex output that you want to
-test, such as if you're writing some ETL code or operating on binary data.
+Consider testing a component with medium-high complexity. Breaking out each case
+into manually-defined test functions is workable, but becomes repetitive if the
+test setup is always identical.
 
-All of this is fine, but once you have decided your test environment is complex
-enough to justify putting the test configuration onto disk, you should probably
-be making it easy to write many tests all in the same format, akin to what
-[table-driven tests][table-driven-tests] offer for simpler tests.
-
-One approach is to have `testdata/` and have subdirectories for each test, for
-example `testdata/some_input_gets_some_output/`. Enter `got.TestSuite` which is
-just a helper for executing a series of tests using sub-directories.
+One approach would be to leverage [table-driven tests][table-driven-tests] to
+perform that identical setup within a loop. GoT provides another approach, which
+targets a directory and treats each sub-directory there as a separate test case.
 
 ```golang
 package mypackage
@@ -139,7 +158,21 @@ import (
   "testing"
 )
 
-func TestSomething(t *testing.T) {
+// testdata/hello-world/input.txt
+// hello world
+
+// testdata/hello-world/expected.txt
+// HELLO WORLD
+
+
+// testdata/foo-bar/input.txt
+// foo bar
+
+// testdata/foo-bar/expected.txt
+// FOO BAR
+
+
+func TestUppercaseSuite(t *testing.T) {
   // define test cases
   type Test struct {
     Input    string `testdata:"input.txt"`
@@ -154,32 +187,49 @@ func TestSomething(t *testing.T) {
       var test Test
       c.Load(t, &test)
 
-      // run the code
-      actual := strings.ToUpper(test.Input)
+      // execute the code under test
+      actual := Uppercase(test.Input)
 
-      // run test assertions
+      // perform test assertions
       if actual != test.Expected {
         t.Fatalf(`expected "%s", got "%s"`, test.Expected, actual)
       }
     },
   }
 
-  // run the test suite
+  // run the test suite: "hello-world" and "foo-bar" each get a sub-test
   suite.Run(t)
+}
+
+// code under test
+func Uppercase(input string) string {
+  return strings.ToUpper(input)
 }
 ```
 
-### Using golden files
+### Skipping test cases
 
-The next pattern that this library facilitates is [golden files][golden-files],
-which are generated when your code is known to be working a particular way, then
-saved somewhere that will be read from later when running later tests. An
-example of this is HTTP recording, but the possibilities are quite broad.
+Sometimes, a test case needs to be disabled temporarily, but deleting it
+altogether may not be desirable. To accomplish this, simply rename the directory
+to have a ".skip" suffix.
 
-Enter `got.Assert`, which is the companion to `got.Load` in that it takes your
-annotated struct and then saves the data back to disk in the same format as it
-would be read. Generally, the only thing you need to treat as "golden" are the
-outputs, so we will define 2 structs:
+
+## Assert: using and updating golden files
+
+In Golang, [golden files][golden-files] are generated when your code is known to
+be working as intended, then saved and referenced later to ensure that outputs
+do not changed unexpectedly. This is very useful when outputs are difficult to
+defined by hand (eg: binary data) or are just large (eg: ETL testing).
+
+`got.Assert` is the companion to `got.Load` in that it takes an annotated struct
+but is more focused on writing the data to disk rather than reading it, creating
+these "golden files". There are 2 modes of operation here, determined by the
+`test.update-golden` flag.
+
+By default, `got.Assert` will compare the input to what already exists on disk,
+failing the test if they do not match. When `go test -update-golden` is used,
+the input will simply be written to disk, skipping the assertion altogether.
+
 
 ```golang
 package mypackage
@@ -191,13 +241,21 @@ import (
   "testing"
 )
 
-func TestSomething(t *testing.T) {
-  // define the test inputs
+// NOTE: no expected.txt files are defined
+
+// testdata/hello-world/input.txt
+// hello world
+
+// testdata/foo-bar/input.txt
+// foo bar
+
+func TestUppercaseAssert(t *testing.T) {
+  // define test inputs
   type Test struct {
     Input string `testdata:"input.txt"`
   }
 
-  // define the expectations
+  // define test expectations
   type Expected struct {
     Output string `testdata:"expected.txt"`
   }
@@ -210,11 +268,13 @@ func TestSomething(t *testing.T) {
       var test Test
       c.Load(t, &test)
 
-      // run the code
-      actual := strings.ToUpper(test.Input)
+      // execute the code under test
+      actual := Uppercase(test.Input)
 
-      // by default, run test assertions
-      // when -update-golden is used, save the golden outputs to disk
+      // perform test assertions
+      // 1. tests will fail as expected.txt files are missing (FAIL)
+      // 2. add -update-golden and expected.txt files will be written (PASS)
+      // 3. tests will pass as long as outputs don't change (PASS)
       got.Assert(&Expected{Output: actual})
     },
   }
@@ -222,15 +282,13 @@ func TestSomething(t *testing.T) {
   // run the test suite
   suite.Run(t)
 }
+
+// code under test
+func Uppercase(input string) string {
+  return strings.ToUpper(input)
+}
 ```
 
-### Skipping test cases
-
-Sometimes, a test case needs to be disabled temporarily, but deleting it
-altogether may not be desirable. To accomplish this, simply rename the directory
-to have a ".skip" suffix.
-
----
 
 Hopefully this demonstrates a bit of what can be accomplished with file-driven
 tests and golden files in particular. GoT is all about getting rid of the
@@ -241,6 +299,7 @@ coverage and overall just make testing easier.
 Check out [godoc][godoc] for more information about the API.
 
 [dave-cheney-test-fixtures]: https://dave.cheney.net/2016/05/10/test-fixtures-in-
+[four-phase-test]: http://xunitpatterns.com/Four%20Phase%20Test.html
 [golden-files]: https://ieftimov.com/post/testing-in-go-golden-files/
 [table-driven-tests]: https://dave.cheney.net/2019/05/07/prefer-table-driven-tests
 [godoc]: https://godoc.org/github.com/dominicbarnes/got
