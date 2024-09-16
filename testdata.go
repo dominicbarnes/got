@@ -303,18 +303,18 @@ func saveFile(file string, field reflect.StructField, val reflect.Value) error {
 	if len(data) == 0 {
 		if err := os.Remove(file); err != nil {
 			if !os.IsNotExist(err) {
-				return fmt.Errorf("%s: failed to delete file %s: %s", field.Name, file, err)
+				return fmt.Errorf("%s: failed to delete file %s: %w", field.Name, file, err)
 			}
 		}
 	} else {
 		dir := filepath.Dir(file)
 
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("%s: failed to create dir %s: %s", field.Name, dir, err)
+			return fmt.Errorf("%s: failed to create dir %s: %w", field.Name, dir, err)
 		}
 
 		if err := os.WriteFile(file, data, 0644); err != nil {
-			return fmt.Errorf("%s: failed to write file %s: %s", field.Name, file, err)
+			return fmt.Errorf("%s: failed to write file %s: %w", field.Name, file, err)
 		}
 	}
 
