@@ -328,11 +328,12 @@ func saveFile(file string, field reflect.StructField, val reflect.Value) error {
 }
 
 func encode(file string, field reflect.StructField, val reflect.Value) ([]byte, error) {
-	if val.IsZero() {
+	switch {
+	case val.IsZero():
 		return nil, nil
-	} else if isBytes(val.Type()) {
+	case isBytes(val.Type()):
 		return val.Bytes(), nil
-	} else if isString(val.Type()) {
+	case isString(val.Type()):
 		return []byte(val.String()), nil
 	}
 
