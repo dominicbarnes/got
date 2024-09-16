@@ -1,4 +1,24 @@
 
+v1.1.3 / 2024-09-15
+===================
+
+  * lint: add golangci config
+  * lint(thelper): use t.Helper() consistently
+  * lint(tagliatelle): use consistent json tags
+  * lint(perfsprint): replace fmt.Sprintf with string concat
+  * fix: remove testing spew.Dump
+  * lint(errorlint): properly wrap errors
+  * lint(lll): maintain lines under 120 width
+  * refactor: remove unnecessary context
+  * refactor: remove unnecessary comments and parameters
+  * lint(gocritic): convert if/else to switch
+  * lint(cyclop): reduce complexity of loadDir and saveDir
+  * lint(gopls): remove unnecessary type arguments
+  * put lowest supported version in go.mod
+  * test(suite): add coverage for RunTestSuite
+  * feat(suite): add helper for common suite runner
+  * test older versions of go
+
 v1.1.2 / 2024-09-15
 ===================
 
