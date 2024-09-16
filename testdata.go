@@ -17,7 +17,7 @@ import (
 var updateGolden bool
 
 func init() {
-	flag.BoolVar(&updateGolden, "update-golden", false, "enable to update golden test files")
+	flag.BoolVar(&updateGolden, "update-golden", false, "instruct got.Assert to update golden files")
 }
 
 const tagName = "testdata"

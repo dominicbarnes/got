@@ -24,11 +24,12 @@ func TestJSONCodec(t *testing.T) {
 	}
 
 	t.Run("no indent", func(t *testing.T) {
-		testCodec(t, new(JSONCodec), v, json.RawMessage(`{"string":"hello world","integer":42,"boolean":true,"nested":{"string":"foo bar","integer":1234567890}}`))
+		raw := `{"string":"hello world","integer":42,"boolean":true,"nested":{"string":"foo bar","integer":1234567890}}`
+		testCodec(t, new(JSONCodec), v, json.RawMessage(raw))
 	})
 
 	t.Run("indent", func(t *testing.T) {
-		testCodec(t, &JSONCodec{Indent: "    "}, v, json.RawMessage(`{
+		raw := `{
     "string": "hello world",
     "integer": 42,
     "boolean": true,
@@ -36,6 +37,7 @@ func TestJSONCodec(t *testing.T) {
         "string": "foo bar",
         "integer": 1234567890
     }
-}`))
+}`
+		testCodec(t, &JSONCodec{Indent: "    "}, v, json.RawMessage(raw))
 	})
 }

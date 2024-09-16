@@ -65,13 +65,13 @@ type TestSuite struct {
 	// SharedDir adds an additional directory to search for test cases.
 	//
 	// When set, this directory is scanned first and is treated as the primary
-	// test suite. For each sub-directory, a corresponding sub-directory must also
-	// be found in Dir, or that sub-test will fail. Any sub-directories found in
-	// Dir will be added to the test suite.
+	// test suite. For each sub-directory, a corresponding sub-directory must
+	// also be found in Dir, or that sub-test will fail. Any sub-directories
+	// found in Dir will be added to the test suite.
 	//
 	// This allows a test suite to be defined for a common interface, which can
-	// then be run for all implementations of that interface, while allowing each
-	// implementation to inculde their own additional test cases and
+	// then be run for all implementations of that interface, while allowing
+	// each implementation to inculde their own additional test cases and
 	// configuration.
 	SharedDir string
 

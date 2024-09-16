@@ -214,7 +214,10 @@ func TestLoad(t *testing.T) {
 				} `testdata:"input.json"`
 			}
 
-			testLoadError(t, "json", new(test), "Input: failed to unmarshal testdata/json/input.json: json: cannot unmarshal string into Go struct field .hello of type int")
+			expectedError := "Input: failed to unmarshal testdata/json/input.json: "
+			expectedError += "json: cannot unmarshal string into Go struct field .hello of type int"
+
+			testLoadError(t, "json", new(test), expectedError)
 		})
 	})
 
