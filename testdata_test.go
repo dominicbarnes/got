@@ -1,7 +1,6 @@
 package got
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -435,8 +434,6 @@ func TestAssert(t *testing.T) {
 				updateGolden = true
 				t.Cleanup(func() { updateGolden = false })
 
-				ctx := context.TODO()
-
 				dir, err := os.MkdirTemp("", test.name)
 				require.NoError(t, err)
 
@@ -455,7 +452,7 @@ func TestAssert(t *testing.T) {
 					Assert(mockT, dir, test.expected)
 
 					actual := reflect.New(reflect.TypeOf(test.expected).Elem()).Interface()
-					require.NoError(t, loadDir(ctx, []string{dir}, actual))
+					require.NoError(t, loadDir([]string{dir}, actual))
 					require.EqualValues(t, test.expected, actual)
 				}
 			})

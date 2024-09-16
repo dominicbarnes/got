@@ -1,7 +1,6 @@
 package got
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -49,7 +48,7 @@ const tagName = "testdata"
 func Load(t T, dir string, values ...any) {
 	t.Helper()
 
-	if err := loadDirs(context.TODO(), []string{dir}, values...); err != nil {
+	if err := loadDirs([]string{dir}, values...); err != nil {
 		t.Fatal(err.Error())
 	}
 }
@@ -60,7 +59,7 @@ func Load(t T, dir string, values ...any) {
 func LoadDirs(t T, dirs []string, values ...any) {
 	t.Helper()
 
-	if err := loadDirs(context.TODO(), dirs, values...); err != nil {
+	if err := loadDirs(dirs, values...); err != nil {
 		t.Fatal(err.Error())
 	}
 }
@@ -75,12 +74,12 @@ func LoadDirs(t T, dirs []string, values ...any) {
 func Assert(t T, dir string, values ...any) {
 	t.Helper()
 
-	if err := assert(context.TODO(), dir, values...); err != nil {
+	if err := assert(dir, values...); err != nil {
 		t.Fatal(err.Error())
 	}
 }
 
-func assert(ctx context.Context, dir string, values ...any) error {
+func assert(dir string, values ...any) error {
 	if len(values) == 0 {
 		return errors.New("at least 1 value required")
 	}
@@ -96,7 +95,7 @@ func assert(ctx context.Context, dir string, values ...any) error {
 
 		expected := reflect.New(reflect.TypeOf(actual).Elem()).Interface()
 
-		if err := loadDirs(ctx, []string{dir}, expected); err != nil {
+		if err := loadDirs([]string{dir}, expected); err != nil {
 			return fmt.Errorf("%T: %w", actual, err)
 		}
 
@@ -108,13 +107,13 @@ func assert(ctx context.Context, dir string, values ...any) error {
 	return nil
 }
 
-func loadDirs(ctx context.Context, inputs []string, outputs ...any) error {
+func loadDirs(inputs []string, outputs ...any) error {
 	if len(outputs) == 0 {
 		return errors.New("at least 1 output required")
 	}
 
 	for _, output := range outputs {
-		if err := loadDir(ctx, inputs, output); err != nil {
+		if err := loadDir(inputs, output); err != nil {
 			return err
 		}
 	}
@@ -122,7 +121,7 @@ func loadDirs(ctx context.Context, inputs []string, outputs ...any) error {
 	return nil
 }
 
-func loadDir(ctx context.Context, inputs []string, output any) error {
+func loadDir(inputs []string, output any) error {
 	if output == nil {
 		return errors.New("output cannot be nil")
 	}
@@ -151,7 +150,7 @@ func loadDir(ctx context.Context, inputs []string, output any) error {
 		}
 
 		for _, input := range inputs {
-			if err := loadDirInput(ctx, input, tag, field, value); err != nil {
+			if err := loadDirInput(input, tag, field, value); err != nil {
 				return err
 			}
 		}
@@ -160,7 +159,7 @@ func loadDir(ctx context.Context, inputs []string, output any) error {
 	return nil
 }
 
-func loadDirInput(_ context.Context, input string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
+func loadDirInput(input string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
 	file := filepath.Join(input, tag.Name)
 
 	if isMap(field.Type) {
