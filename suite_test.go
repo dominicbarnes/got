@@ -18,7 +18,7 @@ func TestRunTestSuite(t *testing.T) {
 		Output string `testdata:"expected.txt"`
 	}
 
-	RunTestSuite[Test, Expected](t, "testdata/suite/assert", func(t *testing.T, test Test) Expected {
+	RunTestSuite(t, "testdata/suite/assert", func(t *testing.T, test Test) Expected {
 		return Expected{Output: strings.ToUpper(test.Input)}
 	})
 }
