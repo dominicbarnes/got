@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -173,8 +172,6 @@ func TestTestSuite(t *testing.T) {
 		}
 
 		suite.Run(t)
-
-		spew.Dump(cases)
 
 		require.ElementsMatch(t, []TestCase{
 			{
