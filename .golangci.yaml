@@ -1,0 +1,32 @@
+linters:
+  enable-all: true
+  disable:
+    - depguard
+    - err113
+    - exhaustruct
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - godox
+    - gofumpt
+    - gomnd
+    - inamedparam
+    - ireturn
+    - maintidx
+    - mnd
+    - nestif
+    - nilnil
+    - nlreturn
+    - paralleltest
+    - revive
+    - testpackage
+    - tparallel
+    - varnamelen
+    - wrapcheck
+    - wsl
+
+linters-settings:
+  gosec:
+    excludes:
+      # 0644 permissions on created files seem reasonable for this use-case
+      - G306
