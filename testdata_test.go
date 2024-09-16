@@ -171,12 +171,12 @@ func TestLoad(t *testing.T) {
 		}
 
 		type JSONComplex struct {
-			String string         `json:"example_string"`
-			Number float64        `json:"example_number"`
-			Bool   bool           `json:"example_boolean"`
-			Null   any            `json:"example_null"`
-			Array  []string       `json:"example_array"`
-			Object map[string]int `json:"example_object"`
+			String string         `json:"exampleString"`
+			Number float64        `json:"exampleNumber"`
+			Bool   bool           `json:"exampleBoolean"`
+			Null   any            `json:"exampleNull"`
+			Array  []string       `json:"exampleArray"`
+			Object map[string]int `json:"exampleObject"`
 		}
 
 		t.Run("simple", func(t *testing.T) {

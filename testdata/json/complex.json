@@ -1,15 +1,15 @@
 {
-  "example_string": "hello world",
-  "example_number": 3.14,
-  "example_boolean": true,
-  "example_null": null,
-  "example_array": [
+  "exampleString": "hello world",
+  "exampleNumber": 3.14,
+  "exampleBoolean": true,
+  "exampleNull": null,
+  "exampleArray": [
     "a",
     "b",
     "c",
     "d"
   ],
-  "example_object": {
+  "exampleObject": {
     "abc": 123,
     "def": 456
   }
