@@ -108,7 +108,6 @@ func assert(ctx context.Context, dir string, values ...any) error {
 	return nil
 }
 
-// loads multiple input dirs into multiple output values
 func loadDirs(ctx context.Context, inputs []string, outputs ...any) error {
 	if len(outputs) == 0 {
 		return errors.New("at least 1 output required")
@@ -123,7 +122,6 @@ func loadDirs(ctx context.Context, inputs []string, outputs ...any) error {
 	return nil
 }
 
-// loads multiple input dirs into a single output value
 func loadDir(ctx context.Context, inputs []string, output any) error {
 	if output == nil {
 		return errors.New("output cannot be nil")
@@ -182,7 +180,7 @@ func loadDirInput(_ context.Context, input string, tag *structtag.Tag, field ref
 			key := reflect.ValueOf(rel)
 			value := reflect.New(m.Type().Elem()).Elem()
 
-			if err := loadFile(match, field, value, tag); err != nil {
+			if err := loadFile(match, field, value); err != nil {
 				return err
 			}
 
@@ -193,15 +191,14 @@ func loadDirInput(_ context.Context, input string, tag *structtag.Tag, field ref
 		return nil
 	}
 
-	if err := loadFile(file, field, value, tag); err != nil {
+	if err := loadFile(file, field, value); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// load a single struct field
-func loadFile(file string, field reflect.StructField, value reflect.Value, tag *structtag.Tag) error {
+func loadFile(file string, field reflect.StructField, value reflect.Value) error {
 	f, err := openTagFile(file)
 	if err != nil {
 		return fmt.Errorf("%s: %w", field.Name, err)
@@ -238,7 +235,6 @@ func loadFile(file string, field reflect.StructField, value reflect.Value, tag *
 	return nil
 }
 
-// persist an input struct to dir on disk
 func saveDir(dir string, input any) error {
 	if input == nil {
 		return errors.New("input cannot be nil")
@@ -299,7 +295,6 @@ func saveDirField(dir string, tag *structtag.Tag, field reflect.StructField, val
 	return nil
 }
 
-// save a single field to disk
 func saveFile(file string, field reflect.StructField, val reflect.Value) error {
 	data, err := encode(file, field, val)
 	if err != nil {
@@ -345,10 +340,10 @@ func encode(file string, field reflect.StructField, val reflect.Value) ([]byte, 
 	return codec.Marshal(val.Interface())
 }
 
-// open a file, suppressing "not found" errors
 func openTagFile(file string) (*os.File, error) {
 	f, err := os.Open(file)
 	if err != nil {
+		// suppress "not found" errors
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
