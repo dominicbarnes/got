@@ -2,7 +2,6 @@ package got
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -33,7 +32,7 @@ func TestLoad(t *testing.T) {
 
 		for _, test := range spec {
 			t.Run(test.typ, func(t *testing.T) {
-				testLoadError(t, "text", test.output, fmt.Sprintf("output must be a pointer, instead got %s", test.typ))
+				testLoadError(t, "text", test.output, "output must be a pointer, instead got "+test.typ)
 			})
 		}
 	})
