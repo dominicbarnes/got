@@ -124,7 +124,7 @@ func loadDirs(ctx context.Context, inputs []string, outputs ...any) error {
 }
 
 // loads multiple input dirs into a single output value
-func loadDir(_ context.Context, inputs []string, output any) error {
+func loadDir(ctx context.Context, inputs []string, output any) error {
 	if output == nil {
 		return errors.New("output cannot be nil")
 	}
@@ -135,8 +135,10 @@ func loadDir(_ context.Context, inputs []string, output any) error {
 
 	typ := reflect.TypeOf(output).Elem()
 	val := reflect.ValueOf(output).Elem()
+
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
+		value := val.Field(i)
 
 		tags, err := structtag.Parse(string(field.Tag))
 		if err != nil {
@@ -151,40 +153,48 @@ func loadDir(_ context.Context, inputs []string, output any) error {
 		}
 
 		for _, input := range inputs {
-			file := filepath.Join(input, tag.Name)
-
-			if isMap(field.Type) {
-				matches, err := filepath.Glob(file)
-				if err != nil {
-					return fmt.Errorf("%s: failed to list files %s: %w", field.Name, file, err)
-				}
-
-				m := reflect.MakeMap(field.Type)
-
-				for _, match := range matches {
-					rel, err := filepath.Rel(input, match)
-					if err != nil {
-						return fmt.Errorf("%s: failed to resolve file %s: %w", field.Name, match, err)
-					}
-
-					key := reflect.ValueOf(rel)
-					value := reflect.New(m.Type().Elem()).Elem()
-
-					if err := loadFile(match, field, value, tag); err != nil {
-						return err
-					}
-
-					m.SetMapIndex(key, value)
-				}
-
-				val.Field(i).Set(m)
-				continue
-			}
-
-			if err := loadFile(file, field, val.Field(i), tag); err != nil {
+			if err := loadDirInput(ctx, input, tag, field, value); err != nil {
 				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+func loadDirInput(_ context.Context, input string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
+	file := filepath.Join(input, tag.Name)
+
+	if isMap(field.Type) {
+		matches, err := filepath.Glob(file)
+		if err != nil {
+			return fmt.Errorf("%s: failed to list files %s: %w", field.Name, file, err)
+		}
+
+		m := reflect.MakeMap(field.Type)
+
+		for _, match := range matches {
+			rel, err := filepath.Rel(input, match)
+			if err != nil {
+				return fmt.Errorf("%s: failed to resolve file %s: %w", field.Name, match, err)
+			}
+
+			key := reflect.ValueOf(rel)
+			value := reflect.New(m.Type().Elem()).Elem()
+
+			if err := loadFile(match, field, value, tag); err != nil {
+				return err
+			}
+
+			m.SetMapIndex(key, value)
+		}
+
+		value.Set(m)
+		return nil
+	}
+
+	if err := loadFile(file, field, value, tag); err != nil {
+		return err
 	}
 
 	return nil
@@ -242,6 +252,7 @@ func saveDir(dir string, input any) error {
 	val := reflect.ValueOf(input).Elem()
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
+		value := val.Field(i)
 
 		tags, err := structtag.Parse(string(field.Tag))
 		if err != nil {
@@ -255,26 +266,34 @@ func saveDir(dir string, input any) error {
 			continue
 		}
 
-		if isMap(field.Type) {
-			iter := val.Field(i).MapRange()
-
-			for iter.Next() {
-				k := iter.Key()
-				v := iter.Value()
-
-				file := filepath.Join(dir, k.String())
-				if err := saveFile(file, field, v); err != nil {
-					return err
-				}
-			}
-
-			continue
-		}
-
-		file := filepath.Join(dir, tag.Name)
-		if err := saveFile(file, field, val.Field(i)); err != nil {
+		if err := saveDirField(dir, tag, field, value); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func saveDirField(dir string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
+	if isMap(field.Type) {
+		iter := value.MapRange()
+
+		for iter.Next() {
+			k := iter.Key()
+			v := iter.Value()
+
+			file := filepath.Join(dir, k.String())
+			if err := saveFile(file, field, v); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	file := filepath.Join(dir, tag.Name)
+	if err := saveFile(file, field, value); err != nil {
+		return err
 	}
 
 	return nil
