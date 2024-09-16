@@ -29,6 +29,8 @@ func TestGet(t *testing.T) {
 }
 
 func testCodec[T any](t *testing.T, c Codec, v1 T, expected []byte) {
+	t.Helper()
+
 	actual, err := c.Marshal(v1)
 	require.NoError(t, err)
 	require.EqualValues(t, string(expected), string(actual))

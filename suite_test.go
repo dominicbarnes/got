@@ -18,6 +18,7 @@ func TestRunTestSuite(t *testing.T) {
 	}
 
 	RunTestSuite(t, "testdata/suite/assert", func(t *testing.T, test Test) Expected {
+		t.Helper()
 		return Expected{Output: strings.ToUpper(test.Input)}
 	})
 }
@@ -34,6 +35,8 @@ func TestTestSuite(t *testing.T) {
 		suite := TestSuite{
 			Dir: "testdata/suite/single-case",
 			TestFunc: func(t *testing.T, tc TestCase) {
+				t.Helper()
+
 				cases = append(cases, tc)
 
 				type Test struct {
@@ -68,6 +71,8 @@ func TestTestSuite(t *testing.T) {
 		suite := TestSuite{
 			Dir: "testdata/suite/multiple-cases",
 			TestFunc: func(t *testing.T, tc TestCase) {
+				t.Helper()
+
 				cases = append(cases, tc)
 
 				type Test struct {
@@ -110,6 +115,8 @@ func TestTestSuite(t *testing.T) {
 		suite := TestSuite{
 			Dir: "testdata/suite/skip",
 			TestFunc: func(t *testing.T, tc TestCase) {
+				t.Helper()
+
 				cases = append(cases, tc)
 
 				type Test struct {
@@ -149,6 +156,8 @@ func TestTestSuite(t *testing.T) {
 			Dir:       "testdata/suite/shared-dir/cases",
 			SharedDir: "testdata/suite/shared-dir/common",
 			TestFunc: func(t *testing.T, tc TestCase) {
+				t.Helper()
+
 				cases = append(cases, tc)
 
 				type Test struct {

@@ -463,6 +463,8 @@ func TestAssert(t *testing.T) {
 }
 
 func testLoadOne(t *testing.T, input string, output, expected any) {
+	t.Helper()
+
 	ctrl := gomock.NewController(t)
 
 	mockT := NewMockT(ctrl)
@@ -474,6 +476,8 @@ func testLoadOne(t *testing.T, input string, output, expected any) {
 }
 
 func testLoadMany(t *testing.T, input string, output, expected []any) {
+	t.Helper()
+
 	ctrl := gomock.NewController(t)
 
 	mockT := NewMockT(ctrl)
@@ -485,6 +489,8 @@ func testLoadMany(t *testing.T, input string, output, expected []any) {
 }
 
 func testLoadError(t *testing.T, input string, output any, expectedErr string) {
+	t.Helper()
+
 	ctrl := gomock.NewController(t)
 
 	mockT := NewMockT(ctrl)

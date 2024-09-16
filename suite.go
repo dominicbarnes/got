@@ -15,9 +15,13 @@ import (
 // For more advanced cases like using TestSuite.SharedDir or situations where
 // multiple types are passed to Load, the TestSuite should be used directly.
 func RunTestSuite[Input any, Output any](t *testing.T, dir string, fn func(t *testing.T, test Input) Output) {
+	t.Helper()
+
 	suite := TestSuite{
 		Dir: dir,
 		TestFunc: func(t *testing.T, tc TestCase) {
+			t.Helper()
+
 			var input Input
 			tc.Load(t, &input)
 
@@ -120,6 +124,8 @@ func (s *TestSuite) Run(t *testing.T) {
 }
 
 func listSubDirs(t *testing.T, dir string) []string {
+	t.Helper()
+
 	if dir == "" {
 		return nil
 	}
