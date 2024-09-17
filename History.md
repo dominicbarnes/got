@@ -1,4 +1,9 @@
 
+v1.2.1 / 2024-09-16
+===================
+
+  * test(suite): fix tests on CI by using .gitkeep files in otherwise empty dirs
+
 v1.2.0 / 2024-09-16
 ===================
 
