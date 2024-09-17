@@ -1,4 +1,9 @@
 
+v1.2.0 / 2024-09-16
+===================
+
+  * feat(suite): add support for only running specific tests (the opposite of skip)
+
 v1.1.3 / 2024-09-15
 ===================
 
