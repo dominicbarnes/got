@@ -144,6 +144,43 @@ func TestTestSuite(t *testing.T) {
 		}, cases)
 	})
 
+	t.Run("only", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper().AnyTimes()
+
+		var cases []TestCase
+
+		suite := TestSuite{
+			Dir: "testdata/suite/only",
+			TestFunc: func(t *testing.T, tc TestCase) {
+				t.Helper()
+
+				cases = append(cases, tc)
+
+				type Test struct {
+					Input string `testdata:"input.txt"`
+				}
+
+				var test Test
+				tc.Load(mockT, &test)
+
+				require.EqualValues(t, "hello world", test.Input)
+			},
+		}
+
+		suite.Run(t)
+
+		require.ElementsMatch(t, []TestCase{
+			{
+				Name: "test-case-2",
+				Only: true,
+				Dir:  "testdata/suite/only/test-case-2.only",
+			},
+		}, cases)
+	})
+
 	t.Run("shared dir", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 
@@ -197,6 +234,86 @@ func TestTestSuite(t *testing.T) {
 				Name:      "test-case-3",
 				Dir:       "testdata/suite/shared-dir/cases/test-case-3",
 				SharedDir: "testdata/suite/shared-dir/common/test-case-3",
+			},
+		}, cases)
+	})
+
+	t.Run("shared dir with only", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper().AnyTimes()
+
+		var cases []TestCase
+
+		suite := TestSuite{
+			Dir:       "testdata/suite/shared-dir-only/cases",
+			SharedDir: "testdata/suite/shared-dir-only/common",
+			TestFunc: func(t *testing.T, tc TestCase) {
+				t.Helper()
+
+				cases = append(cases, tc)
+
+				type Test struct {
+					Input    string `testdata:"input.txt"`
+					Expected string `testdata:"expected.txt"`
+				}
+
+				var test Test
+				tc.Load(mockT, &test)
+			},
+		}
+
+		suite.Run(t)
+
+		require.ElementsMatch(t, []TestCase{
+			{
+				Name:      "test-case-2",
+				Dir:       "testdata/suite/shared-dir-only/cases/test-case-2.only",
+				SharedDir: "testdata/suite/shared-dir-only/common/test-case-2",
+				Only:      true,
+			},
+		}, cases)
+	})
+
+	t.Run("shared dir with skip", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+
+		mockT := NewMockT(ctrl)
+		mockT.EXPECT().Helper().AnyTimes()
+
+		var cases []TestCase
+
+		suite := TestSuite{
+			Dir:       "testdata/suite/shared-dir-skip/cases",
+			SharedDir: "testdata/suite/shared-dir-skip/common",
+			TestFunc: func(t *testing.T, tc TestCase) {
+				t.Helper()
+
+				cases = append(cases, tc)
+
+				type Test struct {
+					Input    string `testdata:"input.txt"`
+					Expected string `testdata:"expected.txt"`
+				}
+
+				var test Test
+				tc.Load(mockT, &test)
+			},
+		}
+
+		suite.Run(t)
+
+		require.ElementsMatch(t, []TestCase{
+			{
+				Name:      "test-case-1",
+				Dir:       "testdata/suite/shared-dir-skip/cases/test-case-1",
+				SharedDir: "testdata/suite/shared-dir-skip/common/test-case-1",
+			},
+			{
+				Name:      "test-case-3",
+				Dir:       "testdata/suite/shared-dir-skip/cases/test-case-3",
+				SharedDir: "testdata/suite/shared-dir-skip/common/test-case-3",
 			},
 		}, cases)
 	})

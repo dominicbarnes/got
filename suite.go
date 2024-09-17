@@ -43,6 +43,10 @@ type TestCase struct {
 	// TestSuite by having a directory name with a ".skip" suffix.
 	Skip bool
 
+	// Only indicates that every other test should be skipped. This is indicated
+	// to the TestSuite by having a directory name with a ".only" suffix.
+	Only bool
+
 	// Dir is the base directory for this test case.
 	Dir string
 
@@ -88,34 +92,54 @@ type TestSuite struct {
 func (s *TestSuite) Run(t *testing.T) {
 	t.Helper()
 
-	testCases := make(map[string]struct{})
+	hasOnly := false
+	testCases := make(map[string]TestCase)
 
-	for _, testName := range listSubDirs(t, s.Dir) {
-		testCases[testName] = struct{}{}
-	}
+	for _, testDir := range listSubDirs(t, s.Dir) {
+		name, skip, only := parseTestDir(testDir)
+		if only {
+			hasOnly = true
+		}
 
-	for _, testName := range listSubDirs(t, s.SharedDir) {
-		testCases[testName] = struct{}{}
-	}
-
-	for testName := range testCases {
 		testCase := TestCase{
-			Name: testName,
-			Dir:  filepath.Join(s.Dir, testName),
+			Name: name,
+			Skip: skip,
+			Only: only,
+			Dir:  filepath.Join(s.Dir, testDir),
 		}
 
-		if strings.HasSuffix(testName, ".skip") {
-			testCase.Name = strings.TrimSuffix(testName, ".skip")
-			testCase.Skip = true
+		testCases[name] = testCase
+	}
+
+	for _, testDir := range listSubDirs(t, s.SharedDir) {
+		name, skip, only := parseTestDir(testDir)
+		if only {
+			hasOnly = true
 		}
 
-		if s.SharedDir != "" {
-			testCase.SharedDir = filepath.Join(s.SharedDir, testName)
-		}
+		sharedDir := filepath.Join(s.SharedDir, testDir)
 
+		if tc, ok := testCases[name]; !ok {
+			testCases[name] = TestCase{
+				Name:      name,
+				Skip:      skip,
+				Only:      only,
+				Dir:       filepath.Join(s.Dir, testDir),
+				SharedDir: sharedDir,
+			}
+		} else {
+			tc.SharedDir = sharedDir
+
+			testCases[name] = tc
+		}
+	}
+
+	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
-			if testCase.Skip {
-				t.SkipNow()
+			if hasOnly && !testCase.Only {
+				t.Skip("skipping test because it is excluded by only")
+			} else if testCase.Skip {
+				t.Skip("skipping test because it is has been marked")
 			}
 
 			s.TestFunc(t, testCase)
@@ -143,4 +167,16 @@ func listSubDirs(t *testing.T, dir string) []string {
 	}
 
 	return list
+}
+
+// returns name, skip, only.
+func parseTestDir(input string) (string, bool, bool) {
+	switch {
+	case strings.HasSuffix(input, ".skip"):
+		return strings.TrimSuffix(input, ".skip"), true, false
+	case strings.HasSuffix(input, ".only"):
+		return strings.TrimSuffix(input, ".only"), false, true
+	default:
+		return input, false, false
+	}
 }
