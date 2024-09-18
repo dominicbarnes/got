@@ -162,7 +162,7 @@ func loadDir(inputs []string, output any) error {
 func loadDirInput(input string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
 	file := filepath.Join(input, tag.Name)
 
-	if isMap(field.Type) {
+	if isMap(field.Type) && tag.HasOption("explode") {
 		matches, err := filepath.Glob(file)
 		if err != nil {
 			return fmt.Errorf("%s: failed to list files %s: %w", field.Name, file, err)
@@ -270,7 +270,7 @@ func saveDir(dir string, input any) error {
 }
 
 func saveDirField(dir string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
-	if isMap(field.Type) {
+	if isMap(field.Type) && tag.HasOption("explode") {
 		iter := value.MapRange()
 
 		for iter.Next() {
