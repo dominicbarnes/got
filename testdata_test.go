@@ -117,9 +117,19 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("maps", func(t *testing.T) {
+		t.Run("raw json", func(t *testing.T) {
+			type test struct {
+				Input map[string]any `testdata:"input.json"`
+			}
+
+			testLoadOne(t, "json", new(test), &test{
+				Input: map[string]any{"hello": "world"},
+			})
+		})
+
 		t.Run("expand glob", func(t *testing.T) {
 			type test struct {
-				Multiple map[string]string `testdata:"*.txt"`
+				Multiple map[string]string `testdata:"*.txt,explode"`
 			}
 
 			testLoadOne(t, "multiple", new(test), &test{
@@ -132,7 +142,7 @@ func TestLoad(t *testing.T) {
 
 		t.Run("single file", func(t *testing.T) {
 			type test struct {
-				Multiple map[string]string `testdata:"a.txt"`
+				Multiple map[string]string `testdata:"a.txt,explode"`
 			}
 
 			testLoadOne(t, "multiple", new(test), &test{
@@ -144,7 +154,7 @@ func TestLoad(t *testing.T) {
 
 		t.Run("bytes", func(t *testing.T) {
 			type test struct {
-				Multiple map[string][]byte `testdata:"a.txt"`
+				Multiple map[string][]byte `testdata:"a.txt,explode"`
 			}
 
 			testLoadOne(t, "multiple", new(test), &test{
@@ -156,7 +166,7 @@ func TestLoad(t *testing.T) {
 
 		t.Run("glob without matches", func(t *testing.T) {
 			type test struct {
-				Multiple map[string]string `testdata:"*.log"`
+				Multiple map[string]string `testdata:"*.log,explode"`
 			}
 
 			testLoadOne(t, "multiple", new(test), &test{
@@ -366,9 +376,17 @@ func TestAssert(t *testing.T) {
 				},
 			},
 			{
-				name: "map",
+				name: "map json",
 				expected: &struct {
-					Files map[string]string `testdata:"*.txt"`
+					Input map[string]string `testdata:"input.json"`
+				}{
+					Input: map[string]string{"hello": "world"},
+				},
+			},
+			{
+				name: "map explode",
+				expected: &struct {
+					Files map[string]string `testdata:"*.txt,explode"`
 				}{
 					Files: map[string]string{"a.txt": "A", "b.txt": "B"},
 				},
