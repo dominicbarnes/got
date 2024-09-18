@@ -1,4 +1,9 @@
 
+v1.3.0 / 2024-09-18
+===================
+
+  * feat(testdata): put special treatment for maps behind a struct tag option (explode) (#8)
+
 v1.2.1 / 2024-09-16
 ===================
 
