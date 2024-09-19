@@ -136,6 +136,8 @@ func (s *TestSuite) Run(t T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(t *testing.T) {
+			t.Helper()
+
 			if hasOnly && !testCase.Only {
 				t.Skip("skipping test because it is excluded by only")
 			} else if testCase.Skip {
