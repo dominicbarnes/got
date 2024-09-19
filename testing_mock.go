@@ -6,6 +6,7 @@ package got
 
 import (
 	reflect "reflect"
+	testing "testing"
 
 	gomock "github.com/golang/mock/gomock"
 )
@@ -49,6 +50,23 @@ func (mr *MockTMockRecorder) Fatal(arg0 ...interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fatal", reflect.TypeOf((*MockT)(nil).Fatal), arg0...)
 }
 
+// Fatalf mocks base method.
+func (m *MockT) Fatalf(arg0 string, arg1 ...interface{}) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Fatalf", varargs...)
+}
+
+// Fatalf indicates an expected call of Fatalf.
+func (mr *MockTMockRecorder) Fatalf(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fatalf", reflect.TypeOf((*MockT)(nil).Fatalf), varargs...)
+}
+
 // Helper mocks base method.
 func (m *MockT) Helper() {
 	m.ctrl.T.Helper()
@@ -59,4 +77,18 @@ func (m *MockT) Helper() {
 func (mr *MockTMockRecorder) Helper() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Helper", reflect.TypeOf((*MockT)(nil).Helper))
+}
+
+// Run mocks base method.
+func (m *MockT) Run(arg0 string, arg1 func(*testing.T)) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Run", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Run indicates an expected call of Run.
+func (mr *MockTMockRecorder) Run(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockT)(nil).Run), arg0, arg1)
 }

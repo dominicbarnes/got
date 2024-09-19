@@ -14,7 +14,7 @@ import (
 //
 // For more advanced cases like using TestSuite.SharedDir or situations where
 // multiple types are passed to Load, the TestSuite should be used directly.
-func RunTestSuite[Input any, Output any](t *testing.T, dir string, fn func(t *testing.T, test Input) Output) {
+func RunTestSuite[Input any, Output any](t T, dir string, fn func(t *testing.T, test Input) Output) {
 	t.Helper()
 
 	suite := TestSuite{
@@ -89,7 +89,7 @@ type TestSuite struct {
 }
 
 // Run loads and executes the test suite.
-func (s *TestSuite) Run(t *testing.T) {
+func (s *TestSuite) Run(t T) {
 	t.Helper()
 
 	hasOnly := false
@@ -147,7 +147,7 @@ func (s *TestSuite) Run(t *testing.T) {
 	}
 }
 
-func listSubDirs(t *testing.T, dir string) []string {
+func listSubDirs(t T, dir string) []string {
 	t.Helper()
 
 	if dir == "" {
