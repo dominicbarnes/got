@@ -382,7 +382,7 @@ into an easy-to-grok function call for straightforward test suites.
 
 It uses type parameters (aka: generics) to accept a function with 2 parameters:
 `*testing.T` and a test configuration struct (conventionally named `Test`) and
-then returning your a test assertions struct (conventionally named `Expected`).
+then returning a test assertions struct (conventionally named `Expected`).
 
 The `Test` struct is passed to `Load` automatically and the returned `Expected`
 is passed to `Assert` automatically.
