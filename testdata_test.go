@@ -173,6 +173,21 @@ func TestLoad(t *testing.T) {
 				Multiple: map[string]string{},
 			})
 		})
+
+		t.Run("glob nested", func(t *testing.T) {
+			type test struct {
+				Input    []string          `testdata:"input.json"`
+				Multiple map[string]string `testdata:"expected/*.txt,explode"`
+			}
+
+			testLoadOne(t, "multiple-nested", new(test), &test{
+				Input: []string{"a", "b"},
+				Multiple: map[string]string{
+					"expected/a.txt": "A",
+					"expected/b.txt": "B",
+				},
+			})
+		})
 	})
 
 	t.Run("json codec", func(t *testing.T) {

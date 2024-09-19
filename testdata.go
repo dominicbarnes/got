@@ -35,16 +35,13 @@ const tagName = "testdata"
 // For example, ".json" files can be processed using [JSONCodec] if it has been
 // registered. Additional codecs (eg: YAML, TOML) can be registered if desired.
 //
-// Map values can be used to dynamically load the contents of a directory, in
-// situations where you don't necessarily know all the files ahead of time.
+// Map values, by default, are decoded using the relevant [Codec].
 //
-// The defined map type must use string keys, otherwise it will return an error.
-// The filename in the struct tag will then be treated as a glob pattern,
-// populating the map with a key for each matched file (relative to the input
-// directory).
-//
-// The values in the map can be either string, []byte or structs as described
-// above.
+// There is also a special mode that works files more dynamically, which is
+// useful for highly variable outputs and is enabled with the "explode" option.
+// When enabled, the struct tag name is treated as a glob pattern. The map is
+// populated with a key corresponding to a relative filepath while the value can
+// be any of the types described above.
 func Load(t T, dir string, values ...any) {
 	t.Helper()
 
