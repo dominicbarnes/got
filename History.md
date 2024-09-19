@@ -1,4 +1,14 @@
 
+v1.4.0 / 2024-09-19
+===================
+
+  * docs(readme): typo
+  * lint(suite): add t.Helper()
+  * docs(readme): add section for RunTestSuite
+  * docs(readme): add notes about 'explode' option and 'only' skips
+  * test(testdata): adding coverage to explode test for a nested directory
+  * refactor(suite): use local T interface consistently
+
 v1.3.0 / 2024-09-18
 ===================
 
