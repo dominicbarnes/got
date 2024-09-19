@@ -7,8 +7,8 @@
 This package is all about making tests easier to write and by improving clarity
 through removing boilerplate and code not related to test assertions.
 
-The [Four-Phase Test][four-phase-test] paradigm, while not strictly required to
-write good tests, can help to increase clarity.
+The [Four-Phase Test][four-phase-test] paradigm heavily influences the decisions
+made for this library.
 
 ## Load: test fixtures as files (aka: testdata)
 
@@ -25,7 +25,7 @@ While opening up files is not difficult on it's own, there can be more to it
 directories (maybe even recursively). Each new line of boilerplate like this
 increases the noise-to-signal ratio for the test.
 
-### Text
+### Working with text (string) and bytes ([]byte)
 
 This package includes `got.Load` for loading files on disk into an annotated
 struct to eliminate this boilerplate from your own code.
@@ -34,9 +34,10 @@ struct to eliminate this boilerplate from your own code.
 package mypackage
 
 import (
-  "path/filepath"
   "strings"
   "testing"
+
+  "github.com/dominicbarnes/got"
 )
 
 // testdata/input.txt
@@ -87,10 +88,11 @@ extension maps to a codec (eg: JSON, YAML) to perform the decode.
 package mypackage
 
 import (
-  "path/filepath"
   "reflect"
   "strings"
   "testing"
+
+  "github.com/dominicbarnes/got"
 )
 
 // testdata/input.json
@@ -139,6 +141,86 @@ Out of the box, this library supports decoding JSON (`.json`) and YAML (`.yml`,
 `.yaml`). You can define your own codecs or override the defaults using
 `got/codec.Register`.
 
+### Working with dynamic maps of files (explode)
+
+When testing a component that can produce outputs dynamically, or even if just
+having a single file for the entire output is undesirable, a `map` type can be
+used with the `explode` struct tag option to map to multiple files with a glob.
+
+```golang
+package mypackage
+
+import (
+  "reflect"
+  "strings"
+  "testing"
+
+  "github.com/dominicbarnes/got"
+)
+
+// testdata/input.json
+// {
+//   "a": "hello",
+//   "b": "world"
+// }
+
+// testdata/expected/a.txt
+// HELLO
+
+// testdata/expected/a.txt
+// WORLD
+
+func TestUppercaseMap(t *testing.T) {
+  // define test cases
+  type Test struct {
+    Input    map[string]string `testdata:"input.json"`
+    Expected map[string]string `testdata:"expected/*.txt,explode"`
+  }
+
+  // load test fixtures
+  var test Test
+  got.LoadTestData(t, "testdata", &test)
+
+  // execute the code under test
+  actual := UppercaseAsFiles(test.Input)
+
+  // perform test assertions
+  if !reflect.DeepEqual(actual, test.Expected) {
+    t.Fatalf(`expected "%+v", got "%+v"`, test.Expected, actual)
+  }
+}
+
+// code under test
+func UppercaseAsFiles(input map[string]string) map[string]string {
+  output := make(map[string]string)
+  for k, v := range input {
+    output[fmt.Sprintf("expected/%s.txt", k)] = strings.ToUpper(v)
+  }
+  return output
+}
+```
+
+Notice that the `testdata` struct tag uses a glob pattern along with the
+`explode` option.
+
+The `Input` map (**not** using `explode`) will look like:
+
+```golang
+map[string]string{
+  "a": "hello",
+  "b": "world",
+}
+```
+
+The `Expected` map (using `explode`) will look like:
+
+```golang
+map[string]string{
+  "expected/a.txt": "HELLO",
+  "expected/b.txt": "WORLD",
+}
+```
+
 ## Suite: Directory-driven test cases
 
 Consider testing a component with medium-high complexity. Breaking out each case
@@ -153,9 +235,10 @@ targets a directory and treats each sub-directory there as a separate test case.
 package mypackage
 
 import (
-  "path/filepath"
   "strings"
   "testing"
+
+  "github.com/dominicbarnes/got"
 )
 
 // testdata/hello-world/input.txt
@@ -213,6 +296,9 @@ Sometimes, a test case needs to be disabled temporarily, but deleting it
 altogether may not be desirable. To accomplish this, simply rename the directory
 to have a ".skip" suffix.
 
+Alternatively, if skipping all but specific tests is desired, add a ".only"
+suffix to skip all other test cases.
+
 
 ## Assert: using and updating golden files
 
@@ -235,10 +321,10 @@ the input will simply be written to disk, skipping the assertion altogether.
 package mypackage
 
 import (
-  "flag"
-  "path/filepath"
   "strings"
   "testing"
+
+  "github.com/dominicbarnes/got"
 )
 
 // NOTE: no expected.txt files are defined
