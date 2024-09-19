@@ -375,12 +375,69 @@ func Uppercase(input string) string {
 }
 ```
 
+## RunTestSuite: putting it all together
 
-Hopefully this demonstrates a bit of what can be accomplished with file-driven
-tests and golden files in particular. GoT is all about getting rid of the
-boilerplate that would otherwise obfuscate a complicated test environment. By
-doing so, the intention is to make it easier to write more tests, improve test
-coverage and overall just make testing easier.
+Using the `RunTestSuite` helper function combines basically every feature above
+into an easy-to-grok function call for straightforward test suites.
+
+It uses type parameters (aka: generics) to accept a function with 2 parameters:
+`*testing.T` and a test configuration struct (conventionally named `Test`) and
+then returning your a test assertions struct (conventionally named `Expected`).
+
+The `Test` struct is passed to `Load` automatically and the returned `Expected`
+is passed to `Assert` automatically.
+
+```golang
+package mypackage
+
+import (
+  "strings"
+  "testing"
+
+  "github.com/dominicbarnes/got"
+)
+
+// testdata/hello-world/input.txt
+// hello world
+
+// testdata/hello-world/expected.txt
+// HELLO WORLD
+
+// testdata/foo-bar/input.txt
+// foo bar
+
+// testdata/foo-bar/expected.txt
+// FOO BAR
+
+func TestUppercase(t *testing.T) {
+  // define test inputs
+  type Test struct {
+    Input string `testdata:"input.txt"`
+  }
+
+  // define test expectations
+  type Expected struct {
+    Output string `testdata:"expected.txt"`
+  }
+
+  got.RunTestSuite(t, "testdata", func (t *testing.T, test Test) Expected {
+    // execute the code under test
+    actual := Uppercase(test.Input)
+
+    // return the actual output for assertions 
+    return Expected{Output: actual}
+  })
+}
+
+// code under test
+func Uppercase(input string) string {
+  return strings.ToUpper(input)
+}
+```
+
+While contrived, the boilerplate for things like `Load` and `Assert` being
+removed really puts the focus on the test itself as much as possible, which is
+even more obvious for more sophisticated tests.
 
 Check out [godoc][godoc] for more information about the API.
 
