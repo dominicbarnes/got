@@ -14,7 +14,7 @@ import (
 //
 // For more advanced cases like using TestSuite.SharedDir or situations where
 // multiple types are passed to Load, the TestSuite should be used directly.
-func RunTestSuite[Input any, Output any](t T, dir string, fn func(t *testing.T, test Input) Output) {
+func RunTestSuite[Input any, Output any](t T, dir string, fn func(t *testing.T, tc TestCase, test Input) Output) {
 	t.Helper()
 
 	suite := TestSuite{
@@ -25,7 +25,7 @@ func RunTestSuite[Input any, Output any](t T, dir string, fn func(t *testing.T, 
 			var input Input
 			tc.Load(t, &input)
 
-			output := fn(t, input)
+			output := fn(t, tc, input)
 
 			Assert(t, tc.Dir, &output)
 		},
