@@ -1,4 +1,10 @@
 
+v1.5.0 / 2024-09-24
+===================
+
+  * feat(suite): add TestCase to func signature
+  * test(testdata): update test broken by empty explode change
+
 v1.4.1 / 2024-09-24
 ===================
 
