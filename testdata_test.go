@@ -170,7 +170,7 @@ func TestLoad(t *testing.T) {
 			}
 
 			testLoadOne(t, "multiple", new(test), &test{
-				Multiple: map[string]string{},
+				Multiple: nil,
 			})
 		})
 
