@@ -183,7 +183,10 @@ func loadDirInput(input string, tag *structtag.Tag, field reflect.StructField, v
 			m.SetMapIndex(key, value)
 		}
 
-		value.Set(m)
+		if m.Len() > 0 {
+			value.Set(m)
+		}
+
 		return nil
 	}
 
