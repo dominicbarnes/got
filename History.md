@@ -1,4 +1,9 @@
 
+v1.4.1 / 2024-09-24
+===================
+
+  * fix(testdata): only set explode values when not empty
+
 v1.4.0 / 2024-09-19
 ===================
 
