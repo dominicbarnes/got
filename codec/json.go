@@ -1,6 +1,9 @@
 package codec
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 type JSONCodec struct {
 	Indent string
@@ -15,5 +18,8 @@ func (c *JSONCodec) Marshal(v any) ([]byte, error) {
 }
 
 func (c *JSONCodec) Unmarshal(data []byte, v any) error {
-	return json.Unmarshal(data, v)
+	r := bytes.NewBuffer(data)
+	d := json.NewDecoder(r)
+	d.UseNumber()
+	return d.Decode(v)
 }
