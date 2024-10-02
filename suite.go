@@ -65,6 +65,11 @@ func (c TestCase) Load(t T, values ...any) {
 	}
 }
 
+// Assert is a helper for checking and/or saving testdata for this test case.
+func (c TestCase) Assert(t T, values ...any) {
+	Assert(t, c.Dir, values...)
+}
+
 // TestSuite defines a collection of tests backed by directories/files on disk.
 type TestSuite struct {
 	// Dir is the location of your test suite.
