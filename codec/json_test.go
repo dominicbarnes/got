@@ -54,7 +54,7 @@ func TestJSONCodec(t *testing.T) {
 		// encode value and ensure we end up with raw
 		actual, err := c.Marshal(value)
 		require.NoError(t, err)
-		require.Equal(t, string(raw), string(actual))
+		require.Equal(t, raw, string(actual))
 
 		// decode raw and ensure we end up with a JSON equivalent value
 		var decode map[string]any
