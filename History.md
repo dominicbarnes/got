@@ -1,4 +1,11 @@
 
+v1.6.0 / 2024-10-01
+===================
+
+  * lint(codec): remove unnecessary conversion (unconvert)
+  * feat(suite): add TestCase.Assert helper
+  * feat(codec/json): use json.Decoder with UseNumber to avoid losing precision
+
 v1.5.0 / 2024-09-24
 ===================
 
