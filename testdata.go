@@ -42,22 +42,22 @@ const tagName = "testdata"
 // When enabled, the struct tag name is treated as a glob pattern. The map is
 // populated with a key corresponding to a relative filepath while the value can
 // be any of the types described above.
-func Load(t T, dir string, values ...any) {
+func Load(t tester, dir string, values ...any) {
 	t.Helper()
 
-	if err := loadDirs([]string{dir}, values...); err != nil {
-		t.Fatal(err.Error())
+	if err := loadDirs(t, []string{dir}, values...); err != nil {
+		t.Fatalf("[GoT] Load: %s", err.Error())
 	}
 }
 
 // LoadDirs is the same as Load but accepts multiple input directories, which
 // can be used to set up test cases from a common/shared location while allowing
 // an individual test-case to include it's own specific configuration.
-func LoadDirs(t T, dirs []string, values ...any) {
+func LoadDirs(t tester, dirs []string, values ...any) {
 	t.Helper()
 
-	if err := loadDirs(dirs, values...); err != nil {
-		t.Fatal(err.Error())
+	if err := loadDirs(t, dirs, values...); err != nil {
+		t.Fatalf("[GoT] LoadDirs: %s", err.Error())
 	}
 }
 
@@ -68,22 +68,22 @@ func LoadDirs(t T, dirs []string, values ...any) {
 // When the "test.update-golden" flag is provided, the contents of each value
 // struct will be persisted to disk instead. This allows any test to easily
 // update their "golden files" and also do the assertion transparently.
-func Assert(t T, dir string, values ...any) {
+func Assert(t tester, dir string, values ...any) {
 	t.Helper()
 
-	if err := assert(dir, values...); err != nil {
-		t.Fatal(err.Error())
+	if err := assert(t, dir, values...); err != nil {
+		t.Fatalf("[GoT] Assert: %s", err.Error())
 	}
 }
 
-func assert(dir string, values ...any) error {
+func assert(log testlogger, dir string, values ...any) error {
 	if len(values) == 0 {
 		return errors.New("at least 1 value required")
 	}
 
 	for _, actual := range values {
 		if updateGolden {
-			if err := saveDir(dir, actual); err != nil {
+			if err := saveDir(log, dir, actual); err != nil {
 				return err
 			}
 
@@ -92,7 +92,7 @@ func assert(dir string, values ...any) error {
 
 		expected := reflect.New(reflect.TypeOf(actual).Elem()).Interface()
 
-		if err := loadDirs([]string{dir}, expected); err != nil {
+		if err := loadDirs(log, []string{dir}, expected); err != nil {
 			return fmt.Errorf("%T: %w", actual, err)
 		}
 
@@ -104,13 +104,13 @@ func assert(dir string, values ...any) error {
 	return nil
 }
 
-func loadDirs(inputs []string, outputs ...any) error {
+func loadDirs(log testlogger, inputs []string, outputs ...any) error {
 	if len(outputs) == 0 {
 		return errors.New("at least 1 output required")
 	}
 
 	for _, output := range outputs {
-		if err := loadDir(inputs, output); err != nil {
+		if err := loadDir(log, inputs, output); err != nil {
 			return err
 		}
 	}
@@ -118,7 +118,7 @@ func loadDirs(inputs []string, outputs ...any) error {
 	return nil
 }
 
-func loadDir(inputs []string, output any) error {
+func loadDir(log testlogger, inputs []string, output any) error {
 	if output == nil {
 		return errors.New("output cannot be nil")
 	}
@@ -147,7 +147,7 @@ func loadDir(inputs []string, output any) error {
 		}
 
 		for _, input := range inputs {
-			if err := loadDirInput(input, tag, field, value); err != nil {
+			if err := loadDirInput(log, input, tag, field, value); err != nil {
 				return err
 			}
 		}
@@ -156,7 +156,7 @@ func loadDir(inputs []string, output any) error {
 	return nil
 }
 
-func loadDirInput(input string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
+func loadDirInput(log testlogger, input string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
 	file := filepath.Join(input, tag.Name)
 
 	if isMap(field.Type) && tag.HasOption("explode") {
@@ -176,7 +176,7 @@ func loadDirInput(input string, tag *structtag.Tag, field reflect.StructField, v
 			key := reflect.ValueOf(rel)
 			value := reflect.New(m.Type().Elem()).Elem()
 
-			if err := loadFile(match, field, value); err != nil {
+			if err := loadFile(log, match, field, value); err != nil {
 				return err
 			}
 
@@ -190,14 +190,14 @@ func loadDirInput(input string, tag *structtag.Tag, field reflect.StructField, v
 		return nil
 	}
 
-	if err := loadFile(file, field, value); err != nil {
+	if err := loadFile(log, file, field, value); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func loadFile(file string, field reflect.StructField, value reflect.Value) error {
+func loadFile(log testlogger, file string, field reflect.StructField, value reflect.Value) error {
 	f, err := openTagFile(file)
 	if err != nil {
 		return fmt.Errorf("%s: %w", field.Name, err)
@@ -234,7 +234,7 @@ func loadFile(file string, field reflect.StructField, value reflect.Value) error
 	return nil
 }
 
-func saveDir(dir string, input any) error {
+func saveDir(log testlogger, dir string, input any) error {
 	if input == nil {
 		return errors.New("input cannot be nil")
 	}
@@ -261,7 +261,7 @@ func saveDir(dir string, input any) error {
 			continue
 		}
 
-		if err := saveDirField(dir, tag, field, value); err != nil {
+		if err := saveDirField(log, dir, tag, field, value); err != nil {
 			return err
 		}
 	}
@@ -269,7 +269,7 @@ func saveDir(dir string, input any) error {
 	return nil
 }
 
-func saveDirField(dir string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
+func saveDirField(log testlogger, dir string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
 	if isMap(field.Type) && tag.HasOption("explode") {
 		iter := value.MapRange()
 
@@ -278,7 +278,7 @@ func saveDirField(dir string, tag *structtag.Tag, field reflect.StructField, val
 			v := iter.Value()
 
 			file := filepath.Join(dir, k.String())
-			if err := saveFile(file, field, v); err != nil {
+			if err := saveFile(log, file, field, v); err != nil {
 				return err
 			}
 		}
@@ -287,15 +287,15 @@ func saveDirField(dir string, tag *structtag.Tag, field reflect.StructField, val
 	}
 
 	file := filepath.Join(dir, tag.Name)
-	if err := saveFile(file, field, value); err != nil {
+	if err := saveFile(log, file, field, value); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func saveFile(file string, field reflect.StructField, val reflect.Value) error {
-	data, err := encode(file, field, val)
+func saveFile(log testlogger, file string, field reflect.StructField, val reflect.Value) error {
+	data, err := encode(log, file, field, val)
 	if err != nil {
 		return fmt.Errorf("%s: failed to encode file %s: %w", field.Name, file, err)
 	}
@@ -321,7 +321,7 @@ func saveFile(file string, field reflect.StructField, val reflect.Value) error {
 	return nil
 }
 
-func encode(file string, field reflect.StructField, val reflect.Value) ([]byte, error) {
+func encode(log testlogger, file string, field reflect.StructField, val reflect.Value) ([]byte, error) {
 	switch {
 	case val.IsZero():
 		return nil, nil

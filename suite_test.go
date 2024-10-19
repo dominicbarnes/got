@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,25 +17,18 @@ func TestRunTestSuite(t *testing.T) {
 	}
 
 	RunTestSuite(t, "testdata/suite/assert", func(t *testing.T, tc TestCase, test Test) Expected {
-		t.Helper()
 		return Expected{Output: strings.ToUpper(test.Input)}
 	})
 }
 
 func TestTestSuite(t *testing.T) {
 	t.Run("single case", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
 			Dir: "testdata/suite/single-case",
 			TestFunc: func(t *testing.T, tc TestCase) {
-				t.Helper()
-
 				cases = append(cases, tc)
 
 				type Test struct {
@@ -44,7 +36,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 
 				require.EqualValues(t, "hello world", test.Input)
 			},
@@ -58,21 +50,19 @@ func TestTestSuite(t *testing.T) {
 				Dir:  "testdata/suite/single-case/test-case-1",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+		}, mt)
 	})
 
 	t.Run("multiple cases", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
 			Dir: "testdata/suite/multiple-cases",
 			TestFunc: func(t *testing.T, tc TestCase) {
-				t.Helper()
-
 				cases = append(cases, tc)
 
 				type Test struct {
@@ -80,7 +70,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 
 				require.EqualValues(t, "hello world", test.Input)
 			},
@@ -102,21 +92,19 @@ func TestTestSuite(t *testing.T) {
 				Dir:  "testdata/suite/multiple-cases/test-case-3",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+		}, mt)
 	})
 
 	t.Run("skip", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
 			Dir: "testdata/suite/skip",
 			TestFunc: func(t *testing.T, tc TestCase) {
-				t.Helper()
-
 				cases = append(cases, tc)
 
 				type Test struct {
@@ -124,7 +112,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 
 				require.EqualValues(t, "hello world", test.Input)
 			},
@@ -142,21 +130,19 @@ func TestTestSuite(t *testing.T) {
 				Dir:  "testdata/suite/skip/test-case-3",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+		}, mt)
 	})
 
 	t.Run("only", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
 			Dir: "testdata/suite/only",
 			TestFunc: func(t *testing.T, tc TestCase) {
-				t.Helper()
-
 				cases = append(cases, tc)
 
 				type Test struct {
@@ -164,7 +150,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 
 				require.EqualValues(t, "hello world", test.Input)
 			},
@@ -179,22 +165,20 @@ func TestTestSuite(t *testing.T) {
 				Dir:  "testdata/suite/only/test-case-2.only",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+		}, mt)
 	})
 
 	t.Run("shared dir", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
 			Dir:       "testdata/suite/shared-dir/cases",
 			SharedDir: "testdata/suite/shared-dir/common",
 			TestFunc: func(t *testing.T, tc TestCase) {
-				t.Helper()
-
 				cases = append(cases, tc)
 
 				type Test struct {
@@ -202,7 +186,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 
 				switch tc.Name {
 				case "test-case-1":
@@ -236,22 +220,20 @@ func TestTestSuite(t *testing.T) {
 				SharedDir: "testdata/suite/shared-dir/common/test-case-3",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+		}, mt)
 	})
 
 	t.Run("shared dir with only", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
 			Dir:       "testdata/suite/shared-dir-only/cases",
 			SharedDir: "testdata/suite/shared-dir-only/common",
 			TestFunc: func(t *testing.T, tc TestCase) {
-				t.Helper()
-
 				cases = append(cases, tc)
 
 				type Test struct {
@@ -260,7 +242,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 			},
 		}
 
@@ -274,22 +256,20 @@ func TestTestSuite(t *testing.T) {
 				Only:      true,
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+		}, mt)
 	})
 
 	t.Run("shared dir with skip", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
 			Dir:       "testdata/suite/shared-dir-skip/cases",
 			SharedDir: "testdata/suite/shared-dir-skip/common",
 			TestFunc: func(t *testing.T, tc TestCase) {
-				t.Helper()
-
 				cases = append(cases, tc)
 
 				type Test struct {
@@ -298,7 +278,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 			},
 		}
 
@@ -316,5 +296,9 @@ func TestTestSuite(t *testing.T) {
 				SharedDir: "testdata/suite/shared-dir-skip/common/test-case-3",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+		}, mt)
 	})
 }

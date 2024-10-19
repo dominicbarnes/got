@@ -2,11 +2,16 @@ package got
 
 import "testing"
 
-//go:generate mockgen -destination=testing_mock.go -package=got . T
-
-type T interface {
+type tester interface {
 	Helper()
+	Run(string, func(*testing.T)) bool
+
+	testlogger
+}
+
+type testlogger interface {
+	Log(...any)
+	Logf(string, ...any)
 	Fatal(...any)
 	Fatalf(string, ...any)
-	Run(string, func(*testing.T)) bool
 }

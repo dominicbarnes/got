@@ -14,7 +14,7 @@ import (
 //
 // For more advanced cases like using TestSuite.SharedDir or situations where
 // multiple types are passed to Load, the TestSuite should be used directly.
-func RunTestSuite[Input any, Output any](t T, dir string, fn func(t *testing.T, tc TestCase, test Input) Output) {
+func RunTestSuite[Input any, Output any](t tester, dir string, fn func(t *testing.T, tc TestCase, test Input) Output) {
 	t.Helper()
 
 	suite := TestSuite{
@@ -57,7 +57,7 @@ type TestCase struct {
 
 // Load is a helper for loading testdata for this test case, factoring in a
 // SharedDir automatically if applicable.
-func (c TestCase) Load(t T, values ...any) {
+func (c TestCase) Load(t tester, values ...any) {
 	if c.SharedDir != "" {
 		LoadDirs(t, []string{c.SharedDir, c.Dir}, values...)
 	} else {
@@ -66,7 +66,7 @@ func (c TestCase) Load(t T, values ...any) {
 }
 
 // Assert is a helper for checking and/or saving testdata for this test case.
-func (c TestCase) Assert(t T, values ...any) {
+func (c TestCase) Assert(t tester, values ...any) {
 	Assert(t, c.Dir, values...)
 }
 
@@ -94,7 +94,7 @@ type TestSuite struct {
 }
 
 // Run loads and executes the test suite.
-func (s *TestSuite) Run(t T) {
+func (s *TestSuite) Run(t tester) {
 	t.Helper()
 
 	hasOnly := false
@@ -154,7 +154,7 @@ func (s *TestSuite) Run(t T) {
 	}
 }
 
-func listSubDirs(t T, dir string) []string {
+func listSubDirs(t tester, dir string) []string {
 	t.Helper()
 
 	if dir == "" {

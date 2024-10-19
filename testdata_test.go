@@ -5,16 +5,16 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLoad(t *testing.T) {
 	t.Run("nil value", func(t *testing.T) {
-		testLoadError(t, "text", nil, "output cannot be nil")
+		testLoadError(t, "text", nil, "[GoT] Load: output cannot be nil")
 	})
 
 	t.Run("unsupported types", func(t *testing.T) {
@@ -32,7 +32,7 @@ func TestLoad(t *testing.T) {
 
 		for _, test := range spec {
 			t.Run(test.typ, func(t *testing.T) {
-				testLoadError(t, "text", test.output, "output must be a pointer, instead got "+test.typ)
+				testLoadError(t, "text", test.output, "[GoT] Load: output must be a pointer, instead got "+test.typ)
 			})
 		}
 	})
@@ -238,7 +238,8 @@ func TestLoad(t *testing.T) {
 				} `testdata:"input.json"`
 			}
 
-			expectedError := "Input: failed to unmarshal testdata/json/input.json: "
+			expectedError := "[GoT] Load: "
+			expectedError += "Input: failed to unmarshal testdata/json/input.json: "
 			expectedError += "json: cannot unmarshal string into Go struct field .hello of type int"
 
 			testLoadError(t, "json", new(test), expectedError)
@@ -250,17 +251,20 @@ func TestLoad(t *testing.T) {
 			Input struct{ Hello string } `testdata:"input.unknown"`
 		}
 
-		testLoadError(t, "unknown", new(test), `Input: failed to get codec for file extension ".unknown"`)
+		testLoadError(t, "unknown", new(test), `[GoT] Load: Input: failed to get codec for file extension ".unknown"`)
 	})
 
 	t.Run("no outputs", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
+		var mt mockT
+		Load(&mt, filepath.Join("testdata", "text"))
 
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper()
-		mockT.EXPECT().Fatal("at least 1 output required")
-
-		Load(mockT, filepath.Join("testdata", "text"))
+		require.EqualValues(t, mockT{
+			helper: true,
+			failed: true,
+			logs: []string{
+				"[GoT] Load: at least 1 output required",
+			},
+		}, mt)
 	})
 
 	t.Run("multiple outputs", func(t *testing.T) {
@@ -286,25 +290,28 @@ func TestLoadDirs(t *testing.T) {
 			B string `testdata:"b.txt"`
 		}
 
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper()
-
+		var mt mockT
 		var actual test
-		LoadDirs(mockT, []string{"testdata/multiple-dirs/dir1", "testdata/multiple-dirs/dir2", "testdata/unknown"}, &actual)
+		LoadDirs(&mt, []string{"testdata/multiple-dirs/dir1", "testdata/multiple-dirs/dir2", "testdata/unknown"}, &actual)
 
 		require.EqualValues(t, test{A: "A", B: "B"}, actual)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+		}, mt)
 	})
 
 	t.Run("missing arguments", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
+		var mt mockT
+		LoadDirs(&mt, []string{"testdata/multiple-dirs/dir1", "testdata/multiple-dirs/dir2"})
 
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper()
-		mockT.EXPECT().Fatal("at least 1 output required")
-
-		LoadDirs(mockT, []string{"testdata/multiple-dirs/dir1", "testdata/multiple-dirs/dir2"})
+		require.EqualValues(t, mockT{
+			helper: true,
+			failed: true,
+			logs: []string{
+				"[GoT] LoadDirs: at least 1 output required",
+			},
+		}, mt)
 	})
 }
 
@@ -314,12 +321,12 @@ func TestAssert(t *testing.T) {
 			Input string `testdata:"input.txt"`
 		}
 
-		ctrl := gomock.NewController(t)
+		var mt mockT
+		Assert(&mt, "testdata/text", &test{Input: "hello world"})
 
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper()
-
-		Assert(mockT, "testdata/text", &test{Input: "hello world"})
+		require.EqualValues(t, mockT{
+			helper: true,
+		}, mt)
 	})
 
 	t.Run("fail", func(t *testing.T) {
@@ -327,23 +334,26 @@ func TestAssert(t *testing.T) {
 			Input string `testdata:"input.txt"`
 		}
 
-		ctrl := gomock.NewController(t)
+		var mt mockT
+		Assert(&mt, "testdata/text", &test{Input: "foo bar"})
 
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper()
-		mockT.EXPECT().Fatal(gomock.Any())
-
-		Assert(mockT, "testdata/text", &test{Input: "foo bar"})
+		require.True(t, mt.helper)
+		require.True(t, mt.failed)
+		require.Len(t, mt.logs, 1)
+		require.True(t, strings.HasPrefix(mt.logs[0], "[GoT] Assert"))
 	})
 
 	t.Run("missing arguments", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
+		var mt mockT
+		Assert(&mt, "testdata/text")
 
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper()
-		mockT.EXPECT().Fatal("at least 1 value required")
-
-		Assert(mockT, "testdata/text")
+		require.EqualValues(t, mockT{
+			helper: true,
+			failed: true,
+			logs: []string{
+				"[GoT] Assert: at least 1 value required",
+			},
+		}, mt)
 	})
 
 	t.Run("update", func(t *testing.T) {
@@ -474,22 +484,26 @@ func TestAssert(t *testing.T) {
 
 				t.Cleanup(func() { os.RemoveAll(dir) })
 
-				ctrl := gomock.NewController(t)
-
-				mockT := NewMockT(ctrl)
-				mockT.EXPECT().Helper()
+				var mt mockT
 
 				if test.fail {
-					mockT.EXPECT().Fatal(gomock.Any())
+					Assert(&mt, dir, test.expected)
 
-					Assert(mockT, dir, test.expected)
+					require.True(t, mt.failed)
+					require.Len(t, mt.logs, 1)
+					require.True(t, strings.HasPrefix(mt.logs[0], "[GoT] Assert:"))
 				} else {
-					Assert(mockT, dir, test.expected)
+					Assert(&mt, dir, test.expected)
 
 					actual := reflect.New(reflect.TypeOf(test.expected).Elem()).Interface()
-					require.NoError(t, loadDir([]string{dir}, actual))
+					require.NoError(t, loadDir(t, []string{dir}, actual))
 					require.EqualValues(t, test.expected, actual)
+
+					require.False(t, mt.failed)
+					require.Empty(t, mt.logs)
 				}
+
+				require.True(t, mt.helper)
 			})
 		}
 	})
@@ -498,37 +512,34 @@ func TestAssert(t *testing.T) {
 func testLoadOne(t *testing.T, input string, output, expected any) {
 	t.Helper()
 
-	ctrl := gomock.NewController(t)
-
-	mockT := NewMockT(ctrl)
-	mockT.EXPECT().Helper()
-
-	Load(mockT, filepath.Join("testdata", input), output)
+	var mt mockT
+	Load(&mt, filepath.Join("testdata", input), output)
 
 	require.EqualValues(t, expected, output)
+
+	require.EqualValues(t, mockT{helper: true}, mt)
 }
 
 func testLoadMany(t *testing.T, input string, output, expected []any) {
 	t.Helper()
 
-	ctrl := gomock.NewController(t)
-
-	mockT := NewMockT(ctrl)
-	mockT.EXPECT().Helper()
-
-	Load(mockT, filepath.Join("testdata", input), output...)
+	var mt mockT
+	Load(&mt, filepath.Join("testdata", input), output...)
 
 	require.EqualValues(t, expected, output)
+
+	require.EqualValues(t, mockT{helper: true}, mt)
 }
 
 func testLoadError(t *testing.T, input string, output any, expectedErr string) {
 	t.Helper()
 
-	ctrl := gomock.NewController(t)
+	var mt mockT
+	Load(&mt, filepath.Join("testdata", input), output)
 
-	mockT := NewMockT(ctrl)
-	mockT.EXPECT().Helper()
-	mockT.EXPECT().Fatal(expectedErr)
-
-	Load(mockT, filepath.Join("testdata", input), output)
+	require.EqualValues(t, mockT{
+		helper: true,
+		failed: true,
+		logs:   []string{expectedErr},
+	}, mt)
 }
