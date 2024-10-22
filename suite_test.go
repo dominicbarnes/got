@@ -53,6 +53,9 @@ func TestTestSuite(t *testing.T) {
 
 		require.EqualValues(t, mockT{
 			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/single-case/test-case-1/input.txt" as string (size 11)`,
+			},
 		}, mt)
 	})
 
@@ -95,6 +98,11 @@ func TestTestSuite(t *testing.T) {
 
 		require.EqualValues(t, mockT{
 			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/multiple-cases/test-case-1/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/multiple-cases/test-case-2/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/multiple-cases/test-case-3/input.txt" as string (size 11)`,
+			},
 		}, mt)
 	})
 
@@ -133,6 +141,10 @@ func TestTestSuite(t *testing.T) {
 
 		require.EqualValues(t, mockT{
 			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/skip/test-case-1/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/skip/test-case-3/input.txt" as string (size 11)`,
+			},
 		}, mt)
 	})
 
@@ -168,6 +180,9 @@ func TestTestSuite(t *testing.T) {
 
 		require.EqualValues(t, mockT{
 			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/only/test-case-2.only/input.txt" as string (size 11)`,
+			},
 		}, mt)
 	})
 
@@ -223,6 +238,14 @@ func TestTestSuite(t *testing.T) {
 
 		require.EqualValues(t, mockT{
 			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/shared-dir/common/test-case-1/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/shared-dir/cases/test-case-1/input.txt" as string (size 8)`,
+				`[GoT] Load: *got.Test: field Input: skipped: file "testdata/suite/shared-dir/common/test-case-2/input.txt" not found`,
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/shared-dir/cases/test-case-2/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/shared-dir/common/test-case-3/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test: field Input: skipped: file "testdata/suite/shared-dir/cases/test-case-3/input.txt" not found`,
+			},
 		}, mt)
 	})
 
@@ -259,6 +282,12 @@ func TestTestSuite(t *testing.T) {
 
 		require.EqualValues(t, mockT{
 			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test: field Input: skipped: file "testdata/suite/shared-dir-only/common/test-case-2/input.txt" not found`,
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/shared-dir-only/cases/test-case-2.only/input.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test: field Expected: loaded file "testdata/suite/shared-dir-only/common/test-case-2/expected.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test: field Expected: skipped: file "testdata/suite/shared-dir-only/cases/test-case-2.only/expected.txt" not found`,
+			},
 		}, mt)
 	})
 
@@ -299,6 +328,16 @@ func TestTestSuite(t *testing.T) {
 
 		require.EqualValues(t, mockT{
 			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test: field Input: skipped: file "testdata/suite/shared-dir-skip/common/test-case-1/input.txt" not found`,
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/shared-dir-skip/cases/test-case-1/input.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test: field Expected: loaded file "testdata/suite/shared-dir-skip/common/test-case-1/expected.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test: field Expected: skipped: file "testdata/suite/shared-dir-skip/cases/test-case-1/expected.txt" not found`,
+				`[GoT] Load: *got.Test: field Input: skipped: file "testdata/suite/shared-dir-skip/common/test-case-3/input.txt" not found`,
+				`[GoT] Load: *got.Test: field Input: loaded file "testdata/suite/shared-dir-skip/cases/test-case-3/input.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test: field Expected: loaded file "testdata/suite/shared-dir-skip/common/test-case-3/expected.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test: field Expected: skipped: file "testdata/suite/shared-dir-skip/cases/test-case-3/expected.txt" not found`,
+			},
 		}, mt)
 	})
 }

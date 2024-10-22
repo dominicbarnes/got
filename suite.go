@@ -3,6 +3,7 @@ package got
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -139,7 +140,15 @@ func (s *TestSuite) Run(t tester) {
 		}
 	}
 
-	for _, testCase := range testCases {
+	var testNames []string
+	for testName := range testCases {
+		testNames = append(testNames, testName)
+	}
+	sort.Strings(testNames)
+
+	for _, testName := range testNames {
+		testCase := testCases[testName]
+
 		t.Run(testCase.Name, func(t *testing.T) {
 			t.Helper()
 

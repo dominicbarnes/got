@@ -2,6 +2,7 @@ package got
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -32,22 +33,19 @@ func TestLoad(t *testing.T) {
 
 		for _, test := range spec {
 			t.Run(test.typ, func(t *testing.T) {
-				testLoadError(t, "text", test.output, "[GoT] Load: output must be a pointer, instead got "+test.typ)
+				testLoadError(t, "text", test.output, fmt.Sprintf("[GoT] Load: %T: output must be a pointer, instead got %s", test.output, test.typ))
 			})
 		}
 	})
 
 	t.Run("struct tags", func(t *testing.T) {
-		// FIXME: go vet will not allow code with invalid struct tags, even if
-		// we are intentionally testing this behavior
-		// t.Run("invalid", func(t
-		// *testing.T) {
-		//  type test struct {
-		//      Invalid string `this is not valid`
-		//  }
+		t.Run("invalid", func(t *testing.T) {
+			type test struct {
+				Invalid string `this is not valid`
+			}
 
-		// 	testLoadError(t, "text", new(test), "Invalid: failed to parse struct tags: bad syntax for struct tag pair")
-		// })
+			testLoadError(t, "text", new(test), "[GoT] Load: *got.test: field Invalid: failed to parse struct tags: bad syntax for struct tag pair")
+		})
 
 		t.Run("missing", func(t *testing.T) {
 			type test struct {
@@ -55,7 +53,9 @@ func TestLoad(t *testing.T) {
 				Missing string // intentionally missing testdata struct tag
 			}
 
-			testLoadOne(t, "text", new(test), &test{Input: "hello world"})
+			testLoadOne(t, "text", new(test), &test{Input: "hello world"}, []string{
+				`[GoT] Load: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`,
+			})
 		})
 
 		t.Run("empty", func(t *testing.T) {
@@ -64,7 +64,9 @@ func TestLoad(t *testing.T) {
 				Missing string `testdata:""`
 			}
 
-			testLoadOne(t, "text", new(test), &test{Input: "hello world"})
+			testLoadOne(t, "text", new(test), &test{Input: "hello world"}, []string{
+				`[GoT] Load: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`,
+			})
 		})
 
 		t.Run("dashed", func(t *testing.T) {
@@ -73,14 +75,16 @@ func TestLoad(t *testing.T) {
 				Missing string `testdata:"-"`
 			}
 
-			testLoadOne(t, "text", new(test), &test{Input: "hello world"})
+			testLoadOne(t, "text", new(test), &test{Input: "hello world"}, []string{
+				`[GoT] Load: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`,
+			})
 		})
 	})
 
 	t.Run("empty struct", func(t *testing.T) {
 		type test struct{}
 
-		testLoadOne(t, "text", new(test), new(test))
+		testLoadOne(t, "text", new(test), new(test), nil)
 	})
 
 	t.Run("string", func(t *testing.T) {
@@ -88,7 +92,9 @@ func TestLoad(t *testing.T) {
 			Input string `testdata:"input.txt"`
 		}
 
-		testLoadOne(t, "text", new(test), &test{Input: "hello world"})
+		testLoadOne(t, "text", new(test), &test{Input: "hello world"}, []string{
+			`[GoT] Load: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`,
+		})
 	})
 
 	t.Run("bytes", func(t *testing.T) {
@@ -96,7 +102,9 @@ func TestLoad(t *testing.T) {
 			Input []byte `testdata:"input.txt"`
 		}
 
-		testLoadOne(t, "text", new(test), &test{Input: []byte("hello world")})
+		testLoadOne(t, "text", new(test), &test{Input: []byte("hello world")}, []string{
+			`[GoT] Load: *got.test: field Input: loaded file "testdata/text/input.txt" as bytes (size 11)`,
+		})
 	})
 
 	t.Run("raw json", func(t *testing.T) {
@@ -104,7 +112,9 @@ func TestLoad(t *testing.T) {
 			Input json.RawMessage `testdata:"input.json"`
 		}
 
-		testLoadOne(t, "json", new(test), &test{Input: json.RawMessage("{\n  \"hello\": \"world\"\n}")})
+		testLoadOne(t, "json", new(test), &test{Input: json.RawMessage("{\n  \"hello\": \"world\"\n}")}, []string{
+			`[GoT] Load: *got.test: field Input: loaded file "testdata/json/input.json" as bytes (size 22)`,
+		})
 	})
 
 	t.Run("multiple", func(t *testing.T) {
@@ -113,7 +123,10 @@ func TestLoad(t *testing.T) {
 			B string `testdata:"b.txt"`
 		}
 
-		testLoadOne(t, "multiple", new(test), &test{A: "A", B: "B"})
+		testLoadOne(t, "multiple", new(test), &test{A: "A", B: "B"}, []string{
+			`[GoT] Load: *got.test: field A: loaded file "testdata/multiple/a.txt" as string (size 1)`,
+			`[GoT] Load: *got.test: field B: loaded file "testdata/multiple/b.txt" as string (size 1)`,
+		})
 	})
 
 	t.Run("maps", func(t *testing.T) {
@@ -124,7 +137,7 @@ func TestLoad(t *testing.T) {
 
 			testLoadOne(t, "json", new(test), &test{
 				Input: map[string]any{"hello": "world"},
-			})
+			}, nil)
 		})
 
 		t.Run("expand glob", func(t *testing.T) {
@@ -137,6 +150,9 @@ func TestLoad(t *testing.T) {
 					"a.txt": "A",
 					"b.txt": "B",
 				},
+			}, []string{
+				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple/b.txt" as string (size 1)`,
 			})
 		})
 
@@ -149,6 +165,8 @@ func TestLoad(t *testing.T) {
 				Multiple: map[string]string{
 					"a.txt": "A",
 				},
+			}, []string{
+				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple/a.txt" as string (size 1)`,
 			})
 		})
 
@@ -161,6 +179,8 @@ func TestLoad(t *testing.T) {
 				Multiple: map[string][]byte{
 					"a.txt": []byte("A"),
 				},
+			}, []string{
+				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple/a.txt" as bytes (size 1)`,
 			})
 		})
 
@@ -171,7 +191,7 @@ func TestLoad(t *testing.T) {
 
 			testLoadOne(t, "multiple", new(test), &test{
 				Multiple: nil,
-			})
+			}, nil)
 		})
 
 		t.Run("glob nested", func(t *testing.T) {
@@ -186,6 +206,9 @@ func TestLoad(t *testing.T) {
 					"expected/a.txt": "A",
 					"expected/b.txt": "B",
 				},
+			}, []string{
+				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple-nested/expected/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple-nested/expected/b.txt" as string (size 1)`,
 			})
 		})
 	})
@@ -211,7 +234,7 @@ func TestLoad(t *testing.T) {
 
 			testLoadOne(t, "json", new(test), &test{
 				Input: JSONInput{Hello: "world"},
-			})
+			}, nil)
 		})
 
 		t.Run("complex", func(t *testing.T) {
@@ -228,7 +251,7 @@ func TestLoad(t *testing.T) {
 					Array:  []string{"a", "b", "c", "d"},
 					Object: map[string]int{"abc": 123, "def": 456},
 				},
-			})
+			}, nil)
 		})
 
 		t.Run("unmarshal error", func(t *testing.T) {
@@ -238,8 +261,8 @@ func TestLoad(t *testing.T) {
 				} `testdata:"input.json"`
 			}
 
-			expectedError := "[GoT] Load: "
-			expectedError += "Input: failed to unmarshal testdata/json/input.json: "
+			expectedError := "[GoT] Load: *got.test: "
+			expectedError += "field Input: file \"testdata/json/input.json\" decode error: "
 			expectedError += "json: cannot unmarshal string into Go struct field .hello of type int"
 
 			testLoadError(t, "json", new(test), expectedError)
@@ -251,7 +274,7 @@ func TestLoad(t *testing.T) {
 			Input struct{ Hello string } `testdata:"input.unknown"`
 		}
 
-		testLoadError(t, "unknown", new(test), `[GoT] Load: Input: failed to get codec for file extension ".unknown"`)
+		testLoadError(t, "unknown", new(test), `[GoT] Load: *got.test: field Input: failed to get codec for file extension ".unknown"`)
 	})
 
 	t.Run("no outputs", func(t *testing.T) {
@@ -279,6 +302,10 @@ func TestLoad(t *testing.T) {
 		testLoadMany(t, "multiple",
 			[]any{new(test1), new(test2)},
 			[]any{&test1{A: "A"}, &test2{B: "B"}},
+			[]string{
+				`[GoT] Load: *got.test1: field A: loaded file "testdata/multiple/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test2: field B: loaded file "testdata/multiple/b.txt" as string (size 1)`,
+			},
 		)
 	})
 }
@@ -298,6 +325,14 @@ func TestLoadDirs(t *testing.T) {
 
 		require.EqualValues(t, mockT{
 			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.test: field A: loaded file "testdata/multiple-dirs/dir1/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test: field A: skipped: file "testdata/multiple-dirs/dir2/a.txt" not found`,
+				`[GoT] Load: *got.test: field A: skipped: file "testdata/unknown/a.txt" not found`,
+				`[GoT] Load: *got.test: field B: skipped: file "testdata/multiple-dirs/dir1/b.txt" not found`,
+				`[GoT] Load: *got.test: field B: loaded file "testdata/multiple-dirs/dir2/b.txt" as string (size 1)`,
+				`[GoT] Load: *got.test: field B: skipped: file "testdata/unknown/b.txt" not found`,
+			},
 		}, mt)
 	})
 
@@ -326,6 +361,9 @@ func TestAssert(t *testing.T) {
 
 		require.EqualValues(t, mockT{
 			helper: true,
+			logs: []string{
+				`[GoT] Assert: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`,
+			},
 		}, mt)
 	})
 
@@ -339,8 +377,9 @@ func TestAssert(t *testing.T) {
 
 		require.True(t, mt.helper)
 		require.True(t, mt.failed)
-		require.Len(t, mt.logs, 1)
-		require.True(t, strings.HasPrefix(mt.logs[0], "[GoT] Assert"))
+		require.Len(t, mt.logs, 2)
+		require.Equal(t, `[GoT] Assert: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`, mt.logs[0])
+		require.True(t, strings.HasPrefix(mt.logs[1], "[GoT] Assert: test of *got.test failed:"))
 	})
 
 	t.Run("missing arguments", func(t *testing.T) {
@@ -496,7 +535,7 @@ func TestAssert(t *testing.T) {
 					Assert(&mt, dir, test.expected)
 
 					actual := reflect.New(reflect.TypeOf(test.expected).Elem()).Interface()
-					require.NoError(t, loadDir(t, []string{dir}, actual))
+					Load(t, dir, actual)
 					require.EqualValues(t, test.expected, actual)
 
 					require.False(t, mt.failed)
@@ -509,18 +548,23 @@ func TestAssert(t *testing.T) {
 	})
 }
 
-func testLoadOne(t *testing.T, input string, output, expected any) {
+func testLoadOne(t *testing.T, input string, output, expected any, logs []string) {
 	t.Helper()
 
+	dir := filepath.Join("testdata", input)
+
 	var mt mockT
-	Load(&mt, filepath.Join("testdata", input), output)
+	Load(&mt, dir, output)
 
 	require.EqualValues(t, expected, output)
 
-	require.EqualValues(t, mockT{helper: true}, mt)
+	require.EqualValues(t, mockT{
+		helper: true,
+		logs:   logs,
+	}, mt)
 }
 
-func testLoadMany(t *testing.T, input string, output, expected []any) {
+func testLoadMany(t *testing.T, input string, output, expected []any, logs []string) {
 	t.Helper()
 
 	var mt mockT
@@ -528,7 +572,10 @@ func testLoadMany(t *testing.T, input string, output, expected []any) {
 
 	require.EqualValues(t, expected, output)
 
-	require.EqualValues(t, mockT{helper: true}, mt)
+	require.EqualValues(t, mockT{
+		helper: true,
+		logs:   logs,
+	}, mt)
 }
 
 func testLoadError(t *testing.T, input string, output any, expectedErr string) {

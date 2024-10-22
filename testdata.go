@@ -45,7 +45,12 @@ const tagName = "testdata"
 func Load(t tester, dir string, values ...any) {
 	t.Helper()
 
-	if err := loadDirs(t, []string{dir}, values...); err != nil {
+	log := &logger{
+		t:      t,
+		prefix: "[GoT] Load",
+	}
+
+	if err := loadDirs(log, []string{dir}, values...); err != nil {
 		t.Fatalf("[GoT] Load: %s", err.Error())
 	}
 }
@@ -56,7 +61,12 @@ func Load(t tester, dir string, values ...any) {
 func LoadDirs(t tester, dirs []string, values ...any) {
 	t.Helper()
 
-	if err := loadDirs(t, dirs, values...); err != nil {
+	log := &logger{
+		t:      t,
+		prefix: "[GoT] Load",
+	}
+
+	if err := loadDirs(log, dirs, values...); err != nil {
 		t.Fatalf("[GoT] LoadDirs: %s", err.Error())
 	}
 }
@@ -71,19 +81,27 @@ func LoadDirs(t tester, dirs []string, values ...any) {
 func Assert(t tester, dir string, values ...any) {
 	t.Helper()
 
-	if err := assert(t, dir, values...); err != nil {
+	log := &logger{
+		t:      t,
+		prefix: "[GoT] Assert",
+	}
+
+	if err := assert(log, dir, values...); err != nil {
 		t.Fatalf("[GoT] Assert: %s", err.Error())
 	}
 }
 
-func assert(log testlogger, dir string, values ...any) error {
+func assert(log *logger, dir string, values ...any) error {
 	if len(values) == 0 {
 		return errors.New("at least 1 value required")
 	}
 
 	for _, actual := range values {
+		// vlog := log.WithPrefix(fmt.Sprintf("%T", actual))
+
 		if updateGolden {
 			if err := saveDir(log, dir, actual); err != nil {
+				// return fmt.Errorf("%T: %w", actual, err)
 				return err
 			}
 
@@ -93,36 +111,39 @@ func assert(log testlogger, dir string, values ...any) error {
 		expected := reflect.New(reflect.TypeOf(actual).Elem()).Interface()
 
 		if err := loadDirs(log, []string{dir}, expected); err != nil {
-			return fmt.Errorf("%T: %w", actual, err)
+			// return fmt.Errorf("%T: %w", actual, err)
+			return err
 		}
 
 		if !cmp.Equal(expected, actual) {
-			return errors.New(cmp.Diff(expected, actual))
+			return fmt.Errorf("test of %T failed: %s", expected, cmp.Diff(expected, actual))
 		}
 	}
 
 	return nil
 }
 
-func loadDirs(log testlogger, inputs []string, outputs ...any) error {
+func loadDirs(log *logger, inputs []string, outputs ...any) error {
 	if len(outputs) == 0 {
 		return errors.New("at least 1 output required")
 	}
 
 	for _, output := range outputs {
-		if err := loadDir(log, inputs, output); err != nil {
-			return err
+		if output == nil {
+			return errors.New("output cannot be nil")
+		}
+
+		vlog := log.WithPrefix(fmt.Sprintf("%T", output))
+
+		if err := loadDir(vlog, inputs, output); err != nil {
+			return fmt.Errorf("%T: %w", output, err)
 		}
 	}
 
 	return nil
 }
 
-func loadDir(log testlogger, inputs []string, output any) error {
-	if output == nil {
-		return errors.New("output cannot be nil")
-	}
-
+func loadDir(log *logger, inputs []string, output any) error {
 	if k := reflect.TypeOf(output).Kind(); k != reflect.Ptr {
 		return fmt.Errorf("output must be a pointer, instead got %s", k)
 	}
@@ -136,7 +157,7 @@ func loadDir(log testlogger, inputs []string, output any) error {
 
 		tags, err := structtag.Parse(string(field.Tag))
 		if err != nil {
-			return fmt.Errorf("%s: failed to parse struct tags: %w", field.Name, err)
+			return fmt.Errorf("field %s: failed to parse struct tags: %w", field.Name, err)
 		}
 
 		tag, err := tags.Get(tagName)
@@ -148,7 +169,7 @@ func loadDir(log testlogger, inputs []string, output any) error {
 
 		for _, input := range inputs {
 			if err := loadDirInput(log, input, tag, field, value); err != nil {
-				return err
+				return fmt.Errorf("field %s: %w", field.Name, err)
 			}
 		}
 	}
@@ -156,13 +177,13 @@ func loadDir(log testlogger, inputs []string, output any) error {
 	return nil
 }
 
-func loadDirInput(log testlogger, input string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
+func loadDirInput(log *logger, input string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
 	file := filepath.Join(input, tag.Name)
 
 	if isMap(field.Type) && tag.HasOption("explode") {
 		matches, err := filepath.Glob(file)
 		if err != nil {
-			return fmt.Errorf("%s: failed to list files %s: %w", field.Name, file, err)
+			return fmt.Errorf("field %s: failed to list files %s: %w", field.Name, file, err)
 		}
 
 		m := reflect.MakeMap(field.Type)
@@ -170,14 +191,14 @@ func loadDirInput(log testlogger, input string, tag *structtag.Tag, field reflec
 		for _, match := range matches {
 			rel, err := filepath.Rel(input, match)
 			if err != nil {
-				return fmt.Errorf("%s: failed to resolve file %s: %w", field.Name, match, err)
+				return fmt.Errorf("field %s: failed to resolve file %s: %w", field.Name, match, err)
 			}
 
 			key := reflect.ValueOf(rel)
 			value := reflect.New(m.Type().Elem()).Elem()
 
-			if err := loadFile(log, match, field, value); err != nil {
-				return err
+			if err := loadFile(log.WithPrefix(fmt.Sprintf("field %s", field.Name)), match, value); err != nil {
+				return fmt.Errorf("field %s: %w", field.Name, err)
 			}
 
 			m.SetMapIndex(key, value)
@@ -190,51 +211,54 @@ func loadDirInput(log testlogger, input string, tag *structtag.Tag, field reflec
 		return nil
 	}
 
-	if err := loadFile(log, file, field, value); err != nil {
+	if err := loadFile(log.WithPrefix(fmt.Sprintf("field %s", field.Name)), file, value); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func loadFile(log testlogger, file string, field reflect.StructField, value reflect.Value) error {
+func loadFile(log *logger, file string, value reflect.Value) error {
 	f, err := openTagFile(file)
 	if err != nil {
-		return fmt.Errorf("%s: %w", field.Name, err)
+		return err
 	} else if f == nil {
+		log.Logf("skipped: file %q not found", file)
 		return nil
 	}
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return fmt.Errorf("%s: failed to read file %s: %w", field.Name, file, err)
+		return fmt.Errorf("file %q read error: %w", file, err)
 	}
 
 	// raw types
 	if isBytes(value.Type()) {
 		value.SetBytes(data)
+		log.Logf("loaded file %q as bytes (size %d)", file, len(data))
 		return nil
 	} else if isString(value.Type()) {
 		value.SetString(string(data))
+		log.Logf("loaded file %q as string (size %d)", file, len(data))
 		return nil
 	}
 
 	ext := filepath.Ext(file)
 	codec, err := codec.Get(ext)
 	if err != nil {
-		return fmt.Errorf("%s: failed to get codec for file extension %q", field.Name, ext)
+		return fmt.Errorf("failed to get codec for file extension %q", ext)
 	}
 
 	p := reflect.New(value.Type())
 	p.Elem().Set(value) // preserve any prior values
 	if err := codec.Unmarshal(data, p.Interface()); err != nil {
-		return fmt.Errorf("%s: failed to unmarshal %s: %w", field.Name, file, err)
+		return fmt.Errorf("file %q decode error: %w", file, err)
 	}
 	value.Set(p.Elem()) // overwrite with the updated value
 	return nil
 }
 
-func saveDir(log testlogger, dir string, input any) error {
+func saveDir(log *logger, dir string, input any) error {
 	if input == nil {
 		return errors.New("input cannot be nil")
 	}
@@ -251,7 +275,7 @@ func saveDir(log testlogger, dir string, input any) error {
 
 		tags, err := structtag.Parse(string(field.Tag))
 		if err != nil {
-			return fmt.Errorf("%s: failed to parse struct tags: %w", field.Name, err)
+			return fmt.Errorf("field %s: failed to parse struct tags: %w", field.Name, err)
 		}
 
 		tag, err := tags.Get(tagName)
@@ -261,15 +285,15 @@ func saveDir(log testlogger, dir string, input any) error {
 			continue
 		}
 
-		if err := saveDirField(log, dir, tag, field, value); err != nil {
-			return err
+		if err := saveDirField(log.WithPrefix(fmt.Sprintf("field %s", field.Name)), dir, tag, field, value); err != nil {
+			return fmt.Errorf("field %s error: %w", field.Name, err)
 		}
 	}
 
 	return nil
 }
 
-func saveDirField(log testlogger, dir string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
+func saveDirField(log *logger, dir string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
 	if isMap(field.Type) && tag.HasOption("explode") {
 		iter := value.MapRange()
 
@@ -278,7 +302,7 @@ func saveDirField(log testlogger, dir string, tag *structtag.Tag, field reflect.
 			v := iter.Value()
 
 			file := filepath.Join(dir, k.String())
-			if err := saveFile(log, file, field, v); err != nil {
+			if err := saveFile(log, file, v); err != nil {
 				return err
 			}
 		}
@@ -287,41 +311,41 @@ func saveDirField(log testlogger, dir string, tag *structtag.Tag, field reflect.
 	}
 
 	file := filepath.Join(dir, tag.Name)
-	if err := saveFile(log, file, field, value); err != nil {
+	if err := saveFile(log, file, value); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func saveFile(log testlogger, file string, field reflect.StructField, val reflect.Value) error {
-	data, err := encode(log, file, field, val)
+func saveFile(log *logger, file string, val reflect.Value) error {
+	data, err := encode(log, file, val)
 	if err != nil {
-		return fmt.Errorf("%s: failed to encode file %s: %w", field.Name, file, err)
+		return fmt.Errorf("failed to encode file %s: %w", file, err)
 	}
 
 	if len(data) == 0 {
 		if err := os.Remove(file); err != nil {
 			if !os.IsNotExist(err) {
-				return fmt.Errorf("%s: failed to delete file %s: %w", field.Name, file, err)
+				return fmt.Errorf("failed to delete file %s: %w", file, err)
 			}
 		}
 	} else {
 		dir := filepath.Dir(file)
 
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("%s: failed to create dir %s: %w", field.Name, dir, err)
+			return fmt.Errorf("failed to create dir %s: %w", dir, err)
 		}
 
 		if err := os.WriteFile(file, data, 0644); err != nil {
-			return fmt.Errorf("%s: failed to write file %s: %w", field.Name, file, err)
+			return fmt.Errorf("failed to write file %s: %w", file, err)
 		}
 	}
 
 	return nil
 }
 
-func encode(log testlogger, file string, field reflect.StructField, val reflect.Value) ([]byte, error) {
+func encode(log *logger, file string, val reflect.Value) ([]byte, error) {
 	switch {
 	case val.IsZero():
 		return nil, nil
@@ -334,7 +358,7 @@ func encode(log testlogger, file string, field reflect.StructField, val reflect.
 	ext := filepath.Ext(file)
 	codec, err := codec.Get(ext)
 	if err != nil {
-		return nil, fmt.Errorf("%s: failed to get codec for file extension %q", field.Name, ext)
+		return nil, fmt.Errorf("failed to get codec for file extension %q", ext)
 	}
 	return codec.Marshal(val.Interface())
 }
