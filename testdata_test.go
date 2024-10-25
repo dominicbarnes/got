@@ -152,8 +152,8 @@ func TestLoad(t *testing.T) {
 					"b.txt": "B",
 				},
 			}, []string{
-				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple/a.txt" as string (size 1)`,
-				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple/b.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.Multiple["a.txt"]: loaded file "testdata/multiple/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.Multiple["b.txt"]: loaded file "testdata/multiple/b.txt" as string (size 1)`,
 			})
 		})
 
@@ -167,7 +167,7 @@ func TestLoad(t *testing.T) {
 					"a.txt": "A",
 				},
 			}, []string{
-				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.Multiple["a.txt"]: loaded file "testdata/multiple/a.txt" as string (size 1)`,
 			})
 		})
 
@@ -181,7 +181,7 @@ func TestLoad(t *testing.T) {
 					"a.txt": []byte("A"),
 				},
 			}, []string{
-				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple/a.txt" as bytes (size 1)`,
+				`[GoT] Load: *got.test.Multiple["a.txt"]: loaded file "testdata/multiple/a.txt" as bytes (size 1)`,
 			})
 		})
 
@@ -192,7 +192,9 @@ func TestLoad(t *testing.T) {
 
 			testLoadOne(t, "multiple", new(test), &test{
 				Multiple: nil,
-			}, nil)
+			}, []string{
+				`[GoT] Load: *got.test.Multiple: no matches found`,
+			})
 		})
 
 		t.Run("glob nested", func(t *testing.T) {
@@ -209,8 +211,8 @@ func TestLoad(t *testing.T) {
 				},
 			}, []string{
 				`[GoT] Load: *got.test.Input: loaded file "testdata/multiple-nested/input.json" as JSON (size 10)`,
-				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple-nested/expected/a.txt" as string (size 1)`,
-				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple-nested/expected/b.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.Multiple["expected/a.txt"]: loaded file "testdata/multiple-nested/expected/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.Multiple["expected/b.txt"]: loaded file "testdata/multiple-nested/expected/b.txt" as string (size 1)`,
 			})
 		})
 	})

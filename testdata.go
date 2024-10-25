@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 
 	"github.com/dominicbarnes/got/codec"
 	"github.com/fatih/structtag"
@@ -180,7 +181,7 @@ func loadDirInput(log *logger, input string, tag *structtag.Tag, field reflect.S
 	if isMap(field.Type) && tag.HasOption("explode") {
 		matches, err := filepath.Glob(file)
 		if err != nil {
-			return fmt.Errorf("%s: failed to list files %s: %w", field.Name, file, err)
+			return fmt.Errorf("failed to list files %s: %w", file, err)
 		}
 
 		m := reflect.MakeMap(field.Type)
@@ -188,13 +189,14 @@ func loadDirInput(log *logger, input string, tag *structtag.Tag, field reflect.S
 		for _, match := range matches {
 			rel, err := filepath.Rel(input, match)
 			if err != nil {
-				return fmt.Errorf("%s: failed to resolve file %s: %w", field.Name, match, err)
+				return fmt.Errorf("failed to resolve file %s: %w", match, err)
 			}
 
 			key := reflect.ValueOf(rel)
 			val := reflect.New(m.Type().Elem()).Elem()
+			prefix := "." + field.Name + "[" + strconv.Quote(key.String()) + "]"
 
-			if err := loadFile(log.WithPrefix("."+field.Name), match, val); err != nil {
+			if err := loadFile(log.WithPrefix(prefix), match, val); err != nil {
 				return fmt.Errorf("%s: %w", field.Name, err)
 			}
 
@@ -203,6 +205,8 @@ func loadDirInput(log *logger, input string, tag *structtag.Tag, field reflect.S
 
 		if m.Len() > 0 {
 			value.Set(m)
+		} else {
+			log.WithPrefix("." + field.Name).Log("no matches found")
 		}
 
 		return nil
@@ -220,7 +224,7 @@ func loadFile(log *logger, file string, value reflect.Value) error {
 	if err != nil {
 		return err
 	} else if f == nil {
-		log.Logf("skipped: file %q not found", file)
+		log.Log("skipped: file %q not found", file)
 		return nil
 	}
 
@@ -232,11 +236,11 @@ func loadFile(log *logger, file string, value reflect.Value) error {
 	// raw types
 	if isBytes(value.Type()) {
 		value.SetBytes(data)
-		log.Logf("loaded file %q as bytes (size %d)", file, len(data))
+		log.Log("loaded file %q as bytes (size %d)", file, len(data))
 		return nil
 	} else if isString(value.Type()) {
 		value.SetString(string(data))
-		log.Logf("loaded file %q as string (size %d)", file, len(data))
+		log.Log("loaded file %q as string (size %d)", file, len(data))
 		return nil
 	}
 
@@ -252,7 +256,7 @@ func loadFile(log *logger, file string, value reflect.Value) error {
 		return fmt.Errorf("file %q decode error: %w", file, err)
 	}
 	value.Set(p.Elem()) // overwrite with the updated value
-	log.Logf("loaded file %q as %s (size %d)", file, codec.Name(), len(data))
+	log.Log("loaded file %q as %s (size %d)", file, codec.Name(), len(data))
 	return nil
 }
 
@@ -331,7 +335,7 @@ func saveFile(log *logger, file string, val reflect.Value) error {
 			}
 		}
 
-		log.Logf("removed file %q: empty", file)
+		log.Log("removed file %q: empty", file)
 	} else {
 		dir := filepath.Dir(file)
 
@@ -343,7 +347,7 @@ func saveFile(log *logger, file string, val reflect.Value) error {
 			return fmt.Errorf("failed to write file %s: %w", file, err)
 		}
 
-		log.Logf("saved file %q (size %d)", file, len(data))
+		log.Log("saved file %q (size %d)", file, len(data))
 	}
 
 	return nil

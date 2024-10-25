@@ -5,11 +5,7 @@ type logger struct {
 	prefix string
 }
 
-func (log *logger) Log(args ...any) {
-	log.t.Log(append([]any{log.prefix}, args...)...)
-}
-
-func (log *logger) Logf(msg string, args ...any) {
+func (log *logger) Log(msg string, args ...any) {
 	log.t.Logf(log.prefix+": "+msg, args...)
 }
 
