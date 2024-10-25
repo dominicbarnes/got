@@ -137,7 +137,9 @@ func TestLoad(t *testing.T) {
 
 			testLoadOne(t, "json", new(test), &test{
 				Input: map[string]any{"hello": "world"},
-			}, nil)
+			}, []string{
+				`[GoT] Load: *got.test: field Input: loaded file "testdata/json/input.json" as JSON (size 22)`,
+			})
 		})
 
 		t.Run("expand glob", func(t *testing.T) {
@@ -207,6 +209,7 @@ func TestLoad(t *testing.T) {
 					"expected/b.txt": "B",
 				},
 			}, []string{
+				`[GoT] Load: *got.test: field Input: loaded file "testdata/multiple-nested/input.json" as JSON (size 10)`,
 				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple-nested/expected/a.txt" as string (size 1)`,
 				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple-nested/expected/b.txt" as string (size 1)`,
 			})
@@ -234,7 +237,9 @@ func TestLoad(t *testing.T) {
 
 			testLoadOne(t, "json", new(test), &test{
 				Input: JSONInput{Hello: "world"},
-			}, nil)
+			}, []string{
+				`[GoT] Load: *got.test: field Input: loaded file "testdata/json/input.json" as JSON (size 22)`,
+			})
 		})
 
 		t.Run("complex", func(t *testing.T) {
@@ -251,7 +256,9 @@ func TestLoad(t *testing.T) {
 					Array:  []string{"a", "b", "c", "d"},
 					Object: map[string]int{"abc": 123, "def": 456},
 				},
-			}, nil)
+			}, []string{
+				`[GoT] Load: *got.test: field Complex: loaded file "testdata/json/complex.json" as JSON (size 227)`,
+			})
 		})
 
 		t.Run("unmarshal error", func(t *testing.T) {

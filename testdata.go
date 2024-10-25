@@ -256,6 +256,7 @@ func loadFile(log *logger, file string, value reflect.Value) error {
 		return fmt.Errorf("file %q decode error: %w", file, err)
 	}
 	value.Set(p.Elem()) // overwrite with the updated value
+	log.Logf("loaded file %q as %s (size %d)", file, codec.Name(), len(data))
 	return nil
 }
 

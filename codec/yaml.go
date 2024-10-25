@@ -11,6 +11,10 @@ type YAMLCodec struct {
 	Indent int
 }
 
+func (c *YAMLCodec) Name() string {
+	return "YAML"
+}
+
 func (c *YAMLCodec) Marshal(v any) ([]byte, error) {
 	if c.Indent > 0 {
 		return yamlMarshalIndent(c.Indent, v)
