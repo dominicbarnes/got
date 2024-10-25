@@ -6,7 +6,7 @@ type logger struct {
 }
 
 func (log *logger) Log(args ...any) {
-	log.t.Log(append([]any{log.prefix}, args...))
+	log.t.Log(append([]any{log.prefix}, args...)...)
 }
 
 func (log *logger) Logf(msg string, args ...any) {

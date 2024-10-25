@@ -140,13 +140,7 @@ func (s *TestSuite) Run(t tester) {
 		}
 	}
 
-	var testNames []string
-	for testName := range testCases {
-		testNames = append(testNames, testName)
-	}
-	sort.Strings(testNames)
-
-	for _, testName := range testNames {
+	for _, testName := range getSortedTestNames(testCases) {
 		testCase := testCases[testName]
 
 		t.Run(testCase.Name, func(t *testing.T) {
@@ -161,6 +155,15 @@ func (s *TestSuite) Run(t tester) {
 			s.TestFunc(t, testCase)
 		})
 	}
+}
+
+func getSortedTestNames(input map[string]TestCase) []string {
+	testNames := make([]string, 0, len(input))
+	for testName := range input {
+		testNames = append(testNames, testName)
+	}
+	sort.Strings(testNames)
+	return testNames
 }
 
 func listSubDirs(t tester, dir string) []string {

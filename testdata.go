@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 
 	"github.com/dominicbarnes/got/codec"
 	"github.com/fatih/structtag"
@@ -195,13 +196,13 @@ func loadDirInput(log *logger, input string, tag *structtag.Tag, field reflect.S
 			}
 
 			key := reflect.ValueOf(rel)
-			value := reflect.New(m.Type().Elem()).Elem()
+			val := reflect.New(m.Type().Elem()).Elem()
 
-			if err := loadFile(log.WithPrefix(fmt.Sprintf("field %s", field.Name)), match, value); err != nil {
+			if err := loadFile(log.WithPrefix("field "+field.Name), match, val); err != nil {
 				return fmt.Errorf("field %s: %w", field.Name, err)
 			}
 
-			m.SetMapIndex(key, value)
+			m.SetMapIndex(key, val)
 		}
 
 		if m.Len() > 0 {
@@ -211,7 +212,7 @@ func loadDirInput(log *logger, input string, tag *structtag.Tag, field reflect.S
 		return nil
 	}
 
-	if err := loadFile(log.WithPrefix(fmt.Sprintf("field %s", field.Name)), file, value); err != nil {
+	if err := loadFile(log.WithPrefix("field "+field.Name), file, value); err != nil {
 		return err
 	}
 
@@ -285,7 +286,7 @@ func saveDir(log *logger, dir string, input any) error {
 			continue
 		}
 
-		if err := saveDirField(log.WithPrefix(fmt.Sprintf("field %s", field.Name)), dir, tag, field, value); err != nil {
+		if err := saveDirField(log.WithPrefix("field "+field.Name), dir, tag, field, value); err != nil {
 			return fmt.Errorf("field %s error: %w", field.Name, err)
 		}
 	}
@@ -295,11 +296,13 @@ func saveDir(log *logger, dir string, input any) error {
 
 func saveDirField(log *logger, dir string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
 	if isMap(field.Type) && tag.HasOption("explode") {
-		iter := value.MapRange()
+		keys := value.MapKeys()
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i].String() < keys[j].String()
+		})
 
-		for iter.Next() {
-			k := iter.Key()
-			v := iter.Value()
+		for _, k := range keys {
+			v := value.MapIndex(k)
 
 			file := filepath.Join(dir, k.String())
 			if err := saveFile(log, file, v); err != nil {
@@ -319,9 +322,9 @@ func saveDirField(log *logger, dir string, tag *structtag.Tag, field reflect.Str
 }
 
 func saveFile(log *logger, file string, val reflect.Value) error {
-	data, err := encode(log, file, val)
+	data, err := encode(file, val)
 	if err != nil {
-		return fmt.Errorf("failed to encode file %s: %w", file, err)
+		return fmt.Errorf("failed to encode file %q: %w", file, err)
 	}
 
 	if len(data) == 0 {
@@ -330,6 +333,8 @@ func saveFile(log *logger, file string, val reflect.Value) error {
 				return fmt.Errorf("failed to delete file %s: %w", file, err)
 			}
 		}
+
+		log.Logf("removed file %q: empty", file)
 	} else {
 		dir := filepath.Dir(file)
 
@@ -340,12 +345,14 @@ func saveFile(log *logger, file string, val reflect.Value) error {
 		if err := os.WriteFile(file, data, 0644); err != nil {
 			return fmt.Errorf("failed to write file %s: %w", file, err)
 		}
+
+		log.Logf("saved file %q (size %d)", file, len(data))
 	}
 
 	return nil
 }
 
-func encode(log *logger, file string, val reflect.Value) ([]byte, error) {
+func encode(file string, val reflect.Value) ([]byte, error) {
 	switch {
 	case val.IsZero():
 		return nil, nil

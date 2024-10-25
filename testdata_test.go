@@ -400,6 +400,7 @@ func TestAssert(t *testing.T) {
 			name     string
 			expected any
 			fail     bool
+			logs     []string
 		}{
 			{
 				name: "string",
@@ -407,6 +408,9 @@ func TestAssert(t *testing.T) {
 					Input string `testdata:"input.txt"`
 				}{
 					Input: "hello world",
+				},
+				logs: []string{
+					`[GoT] Assert: field Input: saved file "<tmp>/input.txt" (size 11)`,
 				},
 			},
 			{
@@ -416,6 +420,9 @@ func TestAssert(t *testing.T) {
 				}{
 					Input: []byte("hello world"),
 				},
+				logs: []string{
+					`[GoT] Assert: field Input: saved file "<tmp>/input.txt" (size 11)`,
+				},
 			},
 			{
 				name: "json raw",
@@ -423,6 +430,9 @@ func TestAssert(t *testing.T) {
 					Input json.RawMessage `testdata:"input.json"`
 				}{
 					Input: json.RawMessage(`{}`),
+				},
+				logs: []string{
+					`[GoT] Assert: field Input: saved file "<tmp>/input.json" (size 2)`,
 				},
 			},
 			{
@@ -438,6 +448,9 @@ func TestAssert(t *testing.T) {
 						Hello: "world",
 					},
 				},
+				logs: []string{
+					`[GoT] Assert: field Input: saved file "<tmp>/input.json" (size 22)`,
+				},
 			},
 			{
 				name: "map json",
@@ -446,6 +459,9 @@ func TestAssert(t *testing.T) {
 				}{
 					Input: map[string]string{"hello": "world"},
 				},
+				logs: []string{
+					`[GoT] Assert: field Input: saved file "<tmp>/input.json" (size 22)`,
+				},
 			},
 			{
 				name: "map explode",
@@ -453,6 +469,10 @@ func TestAssert(t *testing.T) {
 					Files map[string]string `testdata:"*.txt,explode"`
 				}{
 					Files: map[string]string{"a.txt": "A", "b.txt": "B"},
+				},
+				logs: []string{
+					`[GoT] Assert: field Files: saved file "<tmp>/a.txt" (size 1)`,
+					`[GoT] Assert: field Files: saved file "<tmp>/b.txt" (size 1)`,
 				},
 			},
 			{
@@ -476,6 +496,9 @@ func TestAssert(t *testing.T) {
 					Output string `testdata:"output.txt"`
 					Empty  string `testdata:"-"`
 				}{},
+				logs: []string{
+					`[GoT] Assert: field Output: removed file "<tmp>/output.txt": empty`,
+				},
 			},
 			{
 				name: "struct tag empty",
@@ -484,6 +507,9 @@ func TestAssert(t *testing.T) {
 					Empty  string `testdata:""`
 				}{
 					Output: "hello world",
+				},
+				logs: []string{
+					`[GoT] Assert: field Output: saved file "<tmp>/output.txt" (size 11)`,
 				},
 			},
 			{
@@ -494,16 +520,17 @@ func TestAssert(t *testing.T) {
 				}{
 					Output: "hello world",
 				},
+				logs: []string{
+					`[GoT] Assert: field Output: saved file "<tmp>/output.txt" (size 11)`,
+				},
 			},
-			// FIXME: go vet will not allow code with invalid struct tags, even
-			// if we are intentionally testing this behavior
-			// {
-			//  name: "struct tag invalid",
-			//  expected: &struct {
-			//      Output string `testdata:"invalid...`
-			//  }{},
-			//  fail: true,
-			// },
+			{
+				name: "struct tag invalid",
+				expected: &struct {
+					Output string `testdata:"invalid...`
+				}{},
+				fail: true,
+			},
 			{
 				name: "struct tag missing",
 				expected: &struct {
@@ -538,8 +565,14 @@ func TestAssert(t *testing.T) {
 					Load(t, dir, actual)
 					require.EqualValues(t, test.expected, actual)
 
+					// strip the temp directory name from logs, as it makes the
+					// assertion non-deterministic
+					for i := range mt.logs {
+						mt.logs[i] = strings.ReplaceAll(mt.logs[i], dir, "<tmp>")
+					}
+
 					require.False(t, mt.failed)
-					require.Empty(t, mt.logs)
+					require.EqualValues(t, test.logs, mt.logs)
 				}
 
 				require.True(t, mt.helper)
