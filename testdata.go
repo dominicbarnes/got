@@ -114,7 +114,7 @@ func assert(log *logger, dir string, values ...any) error {
 		}
 
 		if !cmp.Equal(expected, actual) {
-			return fmt.Errorf("test of %T failed: %s", expected, cmp.Diff(expected, actual))
+			return fmt.Errorf("test of %s failed: %s", getTypeName(expected), cmp.Diff(expected, actual))
 		}
 	}
 
@@ -131,7 +131,7 @@ func loadDirs(log *logger, inputs []string, outputs ...any) error {
 			return errors.New("output cannot be nil")
 		}
 
-		vlog := log.WithPrefix(fmt.Sprintf("%T", output))
+		vlog := log.WithPrefix(getTypeName(output))
 
 		if err := loadDir(vlog, inputs, output); err != nil {
 			return err
@@ -155,7 +155,7 @@ func loadDir(log *logger, inputs []string, output any) error {
 
 		tags, err := structtag.Parse(string(field.Tag))
 		if err != nil {
-			return fmt.Errorf("%T.%s: failed to parse struct tags: %w", output, field.Name, err)
+			return fmt.Errorf("%s.%s: failed to parse struct tags: %w", getTypeName(output), field.Name, err)
 		}
 
 		tag, err := tags.Get(tagName)
@@ -167,7 +167,7 @@ func loadDir(log *logger, inputs []string, output any) error {
 
 		for _, input := range inputs {
 			if err := loadDirInput(log, input, tag, field, value); err != nil {
-				return fmt.Errorf("%T.%s: %w", output, field.Name, err)
+				return fmt.Errorf("%s.%s: %w", getTypeName(output), field.Name, err)
 			}
 		}
 	}
@@ -277,7 +277,7 @@ func saveDir(log *logger, dir string, input any) error {
 
 		tags, err := structtag.Parse(string(field.Tag))
 		if err != nil {
-			return fmt.Errorf("%T.%s: failed to parse struct tags: %w", input, field.Name, err)
+			return fmt.Errorf("%s.%s: failed to parse struct tags: %w", getTypeName(input), field.Name, err)
 		}
 
 		tag, err := tags.Get(tagName)
@@ -287,8 +287,8 @@ func saveDir(log *logger, dir string, input any) error {
 			continue
 		}
 
-		if err := saveDirField(log.WithPrefix("."+field.Name), dir, tag, field, value); err != nil {
-			return fmt.Errorf("%T.%s error: %w", input, field.Name, err)
+		if err := saveDirField(log.WithPrefix(fmt.Sprintf("%s.%s", getTypeName(input), field.Name)), dir, tag, field, value); err != nil {
+			return fmt.Errorf("%s.%s error: %w", getTypeName(input), field.Name, err)
 		}
 	}
 
@@ -393,4 +393,14 @@ func isBytes(targetType reflect.Type) bool {
 
 func isMap(targetType reflect.Type) bool {
 	return targetType.Kind() == reflect.Map && isString(targetType.Key())
+}
+
+func getTypeName(input any) string {
+	t := reflect.TypeOf(input)
+
+	if t.Kind() == reflect.Ptr && t.Elem().PkgPath() == "" {
+		return "<anonymous>"
+	} else {
+		return t.String()
+	}
 }

@@ -414,7 +414,7 @@ func TestAssert(t *testing.T) {
 					Input: "hello world",
 				},
 				logs: []string{
-					`[GoT] Assert: .Input: saved file "<tmp>/input.txt" (size 11)`,
+					`[GoT] Assert: <anonymous>.Input: saved file "<tmp>/input.txt" (size 11)`,
 				},
 			},
 			{
@@ -425,7 +425,7 @@ func TestAssert(t *testing.T) {
 					Input: []byte("hello world"),
 				},
 				logs: []string{
-					`[GoT] Assert: .Input: saved file "<tmp>/input.txt" (size 11)`,
+					`[GoT] Assert: <anonymous>.Input: saved file "<tmp>/input.txt" (size 11)`,
 				},
 			},
 			{
@@ -436,7 +436,7 @@ func TestAssert(t *testing.T) {
 					Input: json.RawMessage(`{}`),
 				},
 				logs: []string{
-					`[GoT] Assert: .Input: saved file "<tmp>/input.json" (size 2)`,
+					`[GoT] Assert: <anonymous>.Input: saved file "<tmp>/input.json" (size 2)`,
 				},
 			},
 			{
@@ -453,7 +453,7 @@ func TestAssert(t *testing.T) {
 					},
 				},
 				logs: []string{
-					`[GoT] Assert: .Input: saved file "<tmp>/input.json" (size 22)`,
+					`[GoT] Assert: <anonymous>.Input: saved file "<tmp>/input.json" (size 22)`,
 				},
 			},
 			{
@@ -464,7 +464,7 @@ func TestAssert(t *testing.T) {
 					Input: map[string]string{"hello": "world"},
 				},
 				logs: []string{
-					`[GoT] Assert: .Input: saved file "<tmp>/input.json" (size 22)`,
+					`[GoT] Assert: <anonymous>.Input: saved file "<tmp>/input.json" (size 22)`,
 				},
 			},
 			{
@@ -475,8 +475,8 @@ func TestAssert(t *testing.T) {
 					Files: map[string]string{"a.txt": "A", "b.txt": "B"},
 				},
 				logs: []string{
-					`[GoT] Assert: .Files: saved file "<tmp>/a.txt" (size 1)`,
-					`[GoT] Assert: .Files: saved file "<tmp>/b.txt" (size 1)`,
+					`[GoT] Assert: <anonymous>.Files: saved file "<tmp>/a.txt" (size 1)`,
+					`[GoT] Assert: <anonymous>.Files: saved file "<tmp>/b.txt" (size 1)`,
 				},
 			},
 			{
@@ -501,7 +501,7 @@ func TestAssert(t *testing.T) {
 					Empty  string `testdata:"-"`
 				}{},
 				logs: []string{
-					`[GoT] Assert: .Output: removed file "<tmp>/output.txt": empty`,
+					`[GoT] Assert: <anonymous>.Output: removed file "<tmp>/output.txt": empty`,
 				},
 			},
 			{
@@ -513,7 +513,7 @@ func TestAssert(t *testing.T) {
 					Output: "hello world",
 				},
 				logs: []string{
-					`[GoT] Assert: .Output: saved file "<tmp>/output.txt" (size 11)`,
+					`[GoT] Assert: <anonymous>.Output: saved file "<tmp>/output.txt" (size 11)`,
 				},
 			},
 			{
@@ -525,7 +525,7 @@ func TestAssert(t *testing.T) {
 					Output: "hello world",
 				},
 				logs: []string{
-					`[GoT] Assert: .Output: saved file "<tmp>/output.txt" (size 11)`,
+					`[GoT] Assert: <anonymous>.Output: saved file "<tmp>/output.txt" (size 11)`,
 				},
 			},
 			{
