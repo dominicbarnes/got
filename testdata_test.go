@@ -2,7 +2,6 @@ package got
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -33,7 +32,7 @@ func TestLoad(t *testing.T) {
 
 		for _, test := range spec {
 			t.Run(test.typ, func(t *testing.T) {
-				testLoadError(t, "text", test.output, fmt.Sprintf("[GoT] Load: %T: output must be a pointer, instead got %s", test.output, test.typ))
+				testLoadError(t, "text", test.output, "[GoT] Load: output must be a pointer, but got "+test.typ)
 			})
 		}
 	})
@@ -44,7 +43,7 @@ func TestLoad(t *testing.T) {
 				Invalid string `this is not valid`
 			}
 
-			testLoadError(t, "text", new(test), "[GoT] Load: *got.test: field Invalid: failed to parse struct tags: bad syntax for struct tag pair")
+			testLoadError(t, "text", new(test), "[GoT] Load: *got.test.Invalid: failed to parse struct tags: bad syntax for struct tag pair")
 		})
 
 		t.Run("missing", func(t *testing.T) {
@@ -54,7 +53,7 @@ func TestLoad(t *testing.T) {
 			}
 
 			testLoadOne(t, "text", new(test), &test{Input: "hello world"}, []string{
-				`[GoT] Load: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.test.Input: loaded file "testdata/text/input.txt" as string (size 11)`,
 			})
 		})
 
@@ -65,7 +64,7 @@ func TestLoad(t *testing.T) {
 			}
 
 			testLoadOne(t, "text", new(test), &test{Input: "hello world"}, []string{
-				`[GoT] Load: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.test.Input: loaded file "testdata/text/input.txt" as string (size 11)`,
 			})
 		})
 
@@ -76,7 +75,7 @@ func TestLoad(t *testing.T) {
 			}
 
 			testLoadOne(t, "text", new(test), &test{Input: "hello world"}, []string{
-				`[GoT] Load: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.test.Input: loaded file "testdata/text/input.txt" as string (size 11)`,
 			})
 		})
 	})
@@ -93,7 +92,7 @@ func TestLoad(t *testing.T) {
 		}
 
 		testLoadOne(t, "text", new(test), &test{Input: "hello world"}, []string{
-			`[GoT] Load: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`,
+			`[GoT] Load: *got.test.Input: loaded file "testdata/text/input.txt" as string (size 11)`,
 		})
 	})
 
@@ -103,7 +102,7 @@ func TestLoad(t *testing.T) {
 		}
 
 		testLoadOne(t, "text", new(test), &test{Input: []byte("hello world")}, []string{
-			`[GoT] Load: *got.test: field Input: loaded file "testdata/text/input.txt" as bytes (size 11)`,
+			`[GoT] Load: *got.test.Input: loaded file "testdata/text/input.txt" as bytes (size 11)`,
 		})
 	})
 
@@ -113,7 +112,7 @@ func TestLoad(t *testing.T) {
 		}
 
 		testLoadOne(t, "json", new(test), &test{Input: json.RawMessage("{\n  \"hello\": \"world\"\n}")}, []string{
-			`[GoT] Load: *got.test: field Input: loaded file "testdata/json/input.json" as bytes (size 22)`,
+			`[GoT] Load: *got.test.Input: loaded file "testdata/json/input.json" as bytes (size 22)`,
 		})
 	})
 
@@ -124,8 +123,8 @@ func TestLoad(t *testing.T) {
 		}
 
 		testLoadOne(t, "multiple", new(test), &test{A: "A", B: "B"}, []string{
-			`[GoT] Load: *got.test: field A: loaded file "testdata/multiple/a.txt" as string (size 1)`,
-			`[GoT] Load: *got.test: field B: loaded file "testdata/multiple/b.txt" as string (size 1)`,
+			`[GoT] Load: *got.test.A: loaded file "testdata/multiple/a.txt" as string (size 1)`,
+			`[GoT] Load: *got.test.B: loaded file "testdata/multiple/b.txt" as string (size 1)`,
 		})
 	})
 
@@ -138,7 +137,7 @@ func TestLoad(t *testing.T) {
 			testLoadOne(t, "json", new(test), &test{
 				Input: map[string]any{"hello": "world"},
 			}, []string{
-				`[GoT] Load: *got.test: field Input: loaded file "testdata/json/input.json" as JSON (size 22)`,
+				`[GoT] Load: *got.test.Input: loaded file "testdata/json/input.json" as JSON (size 22)`,
 			})
 		})
 
@@ -153,8 +152,8 @@ func TestLoad(t *testing.T) {
 					"b.txt": "B",
 				},
 			}, []string{
-				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple/a.txt" as string (size 1)`,
-				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple/b.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple/b.txt" as string (size 1)`,
 			})
 		})
 
@@ -168,7 +167,7 @@ func TestLoad(t *testing.T) {
 					"a.txt": "A",
 				},
 			}, []string{
-				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple/a.txt" as string (size 1)`,
 			})
 		})
 
@@ -182,7 +181,7 @@ func TestLoad(t *testing.T) {
 					"a.txt": []byte("A"),
 				},
 			}, []string{
-				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple/a.txt" as bytes (size 1)`,
+				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple/a.txt" as bytes (size 1)`,
 			})
 		})
 
@@ -209,9 +208,9 @@ func TestLoad(t *testing.T) {
 					"expected/b.txt": "B",
 				},
 			}, []string{
-				`[GoT] Load: *got.test: field Input: loaded file "testdata/multiple-nested/input.json" as JSON (size 10)`,
-				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple-nested/expected/a.txt" as string (size 1)`,
-				`[GoT] Load: *got.test: field Multiple: loaded file "testdata/multiple-nested/expected/b.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.Input: loaded file "testdata/multiple-nested/input.json" as JSON (size 10)`,
+				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple-nested/expected/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.Multiple: loaded file "testdata/multiple-nested/expected/b.txt" as string (size 1)`,
 			})
 		})
 	})
@@ -238,7 +237,7 @@ func TestLoad(t *testing.T) {
 			testLoadOne(t, "json", new(test), &test{
 				Input: JSONInput{Hello: "world"},
 			}, []string{
-				`[GoT] Load: *got.test: field Input: loaded file "testdata/json/input.json" as JSON (size 22)`,
+				`[GoT] Load: *got.test.Input: loaded file "testdata/json/input.json" as JSON (size 22)`,
 			})
 		})
 
@@ -257,7 +256,7 @@ func TestLoad(t *testing.T) {
 					Object: map[string]int{"abc": 123, "def": 456},
 				},
 			}, []string{
-				`[GoT] Load: *got.test: field Complex: loaded file "testdata/json/complex.json" as JSON (size 227)`,
+				`[GoT] Load: *got.test.Complex: loaded file "testdata/json/complex.json" as JSON (size 227)`,
 			})
 		})
 
@@ -268,11 +267,7 @@ func TestLoad(t *testing.T) {
 				} `testdata:"input.json"`
 			}
 
-			expectedError := "[GoT] Load: *got.test: "
-			expectedError += "field Input: file \"testdata/json/input.json\" decode error: "
-			expectedError += "json: cannot unmarshal string into Go struct field .hello of type int"
-
-			testLoadError(t, "json", new(test), expectedError)
+			testLoadError(t, "json", new(test), `[GoT] Load: *got.test.Input: file "testdata/json/input.json" decode error: json: cannot unmarshal string into Go struct field .hello of type int`)
 		})
 	})
 
@@ -281,7 +276,7 @@ func TestLoad(t *testing.T) {
 			Input struct{ Hello string } `testdata:"input.unknown"`
 		}
 
-		testLoadError(t, "unknown", new(test), `[GoT] Load: *got.test: field Input: failed to get codec for file extension ".unknown"`)
+		testLoadError(t, "unknown", new(test), `[GoT] Load: *got.test.Input: failed to get codec for file extension ".unknown"`)
 	})
 
 	t.Run("no outputs", func(t *testing.T) {
@@ -310,8 +305,8 @@ func TestLoad(t *testing.T) {
 			[]any{new(test1), new(test2)},
 			[]any{&test1{A: "A"}, &test2{B: "B"}},
 			[]string{
-				`[GoT] Load: *got.test1: field A: loaded file "testdata/multiple/a.txt" as string (size 1)`,
-				`[GoT] Load: *got.test2: field B: loaded file "testdata/multiple/b.txt" as string (size 1)`,
+				`[GoT] Load: *got.test1.A: loaded file "testdata/multiple/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test2.B: loaded file "testdata/multiple/b.txt" as string (size 1)`,
 			},
 		)
 	})
@@ -333,12 +328,12 @@ func TestLoadDirs(t *testing.T) {
 		require.EqualValues(t, mockT{
 			helper: true,
 			logs: []string{
-				`[GoT] Load: *got.test: field A: loaded file "testdata/multiple-dirs/dir1/a.txt" as string (size 1)`,
-				`[GoT] Load: *got.test: field A: skipped: file "testdata/multiple-dirs/dir2/a.txt" not found`,
-				`[GoT] Load: *got.test: field A: skipped: file "testdata/unknown/a.txt" not found`,
-				`[GoT] Load: *got.test: field B: skipped: file "testdata/multiple-dirs/dir1/b.txt" not found`,
-				`[GoT] Load: *got.test: field B: loaded file "testdata/multiple-dirs/dir2/b.txt" as string (size 1)`,
-				`[GoT] Load: *got.test: field B: skipped: file "testdata/unknown/b.txt" not found`,
+				`[GoT] Load: *got.test.A: loaded file "testdata/multiple-dirs/dir1/a.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.A: skipped: file "testdata/multiple-dirs/dir2/a.txt" not found`,
+				`[GoT] Load: *got.test.A: skipped: file "testdata/unknown/a.txt" not found`,
+				`[GoT] Load: *got.test.B: skipped: file "testdata/multiple-dirs/dir1/b.txt" not found`,
+				`[GoT] Load: *got.test.B: loaded file "testdata/multiple-dirs/dir2/b.txt" as string (size 1)`,
+				`[GoT] Load: *got.test.B: skipped: file "testdata/unknown/b.txt" not found`,
 			},
 		}, mt)
 	})
@@ -369,7 +364,7 @@ func TestAssert(t *testing.T) {
 		require.EqualValues(t, mockT{
 			helper: true,
 			logs: []string{
-				`[GoT] Assert: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`,
+				`[GoT] Assert: *got.test.Input: loaded file "testdata/text/input.txt" as string (size 11)`,
 			},
 		}, mt)
 	})
@@ -385,7 +380,7 @@ func TestAssert(t *testing.T) {
 		require.True(t, mt.helper)
 		require.True(t, mt.failed)
 		require.Len(t, mt.logs, 2)
-		require.Equal(t, `[GoT] Assert: *got.test: field Input: loaded file "testdata/text/input.txt" as string (size 11)`, mt.logs[0])
+		require.Equal(t, `[GoT] Assert: *got.test.Input: loaded file "testdata/text/input.txt" as string (size 11)`, mt.logs[0])
 		require.True(t, strings.HasPrefix(mt.logs[1], "[GoT] Assert: test of *got.test failed:"))
 	})
 
@@ -417,7 +412,7 @@ func TestAssert(t *testing.T) {
 					Input: "hello world",
 				},
 				logs: []string{
-					`[GoT] Assert: field Input: saved file "<tmp>/input.txt" (size 11)`,
+					`[GoT] Assert: .Input: saved file "<tmp>/input.txt" (size 11)`,
 				},
 			},
 			{
@@ -428,7 +423,7 @@ func TestAssert(t *testing.T) {
 					Input: []byte("hello world"),
 				},
 				logs: []string{
-					`[GoT] Assert: field Input: saved file "<tmp>/input.txt" (size 11)`,
+					`[GoT] Assert: .Input: saved file "<tmp>/input.txt" (size 11)`,
 				},
 			},
 			{
@@ -439,7 +434,7 @@ func TestAssert(t *testing.T) {
 					Input: json.RawMessage(`{}`),
 				},
 				logs: []string{
-					`[GoT] Assert: field Input: saved file "<tmp>/input.json" (size 2)`,
+					`[GoT] Assert: .Input: saved file "<tmp>/input.json" (size 2)`,
 				},
 			},
 			{
@@ -456,7 +451,7 @@ func TestAssert(t *testing.T) {
 					},
 				},
 				logs: []string{
-					`[GoT] Assert: field Input: saved file "<tmp>/input.json" (size 22)`,
+					`[GoT] Assert: .Input: saved file "<tmp>/input.json" (size 22)`,
 				},
 			},
 			{
@@ -467,7 +462,7 @@ func TestAssert(t *testing.T) {
 					Input: map[string]string{"hello": "world"},
 				},
 				logs: []string{
-					`[GoT] Assert: field Input: saved file "<tmp>/input.json" (size 22)`,
+					`[GoT] Assert: .Input: saved file "<tmp>/input.json" (size 22)`,
 				},
 			},
 			{
@@ -478,8 +473,8 @@ func TestAssert(t *testing.T) {
 					Files: map[string]string{"a.txt": "A", "b.txt": "B"},
 				},
 				logs: []string{
-					`[GoT] Assert: field Files: saved file "<tmp>/a.txt" (size 1)`,
-					`[GoT] Assert: field Files: saved file "<tmp>/b.txt" (size 1)`,
+					`[GoT] Assert: .Files: saved file "<tmp>/a.txt" (size 1)`,
+					`[GoT] Assert: .Files: saved file "<tmp>/b.txt" (size 1)`,
 				},
 			},
 			{
@@ -504,7 +499,7 @@ func TestAssert(t *testing.T) {
 					Empty  string `testdata:"-"`
 				}{},
 				logs: []string{
-					`[GoT] Assert: field Output: removed file "<tmp>/output.txt": empty`,
+					`[GoT] Assert: .Output: removed file "<tmp>/output.txt": empty`,
 				},
 			},
 			{
@@ -516,7 +511,7 @@ func TestAssert(t *testing.T) {
 					Output: "hello world",
 				},
 				logs: []string{
-					`[GoT] Assert: field Output: saved file "<tmp>/output.txt" (size 11)`,
+					`[GoT] Assert: .Output: saved file "<tmp>/output.txt" (size 11)`,
 				},
 			},
 			{
@@ -528,7 +523,7 @@ func TestAssert(t *testing.T) {
 					Output: "hello world",
 				},
 				logs: []string{
-					`[GoT] Assert: field Output: saved file "<tmp>/output.txt" (size 11)`,
+					`[GoT] Assert: .Output: saved file "<tmp>/output.txt" (size 11)`,
 				},
 			},
 			{

@@ -16,6 +16,6 @@ func (log *logger) Logf(msg string, args ...any) {
 func (log *logger) WithPrefix(prefix string) *logger {
 	return &logger{
 		t:      log.t,
-		prefix: log.prefix + ": " + prefix,
+		prefix: log.prefix + prefix,
 	}
 }

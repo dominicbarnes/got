@@ -48,7 +48,7 @@ func Load(t tester, dir string, values ...any) {
 
 	log := &logger{
 		t:      t,
-		prefix: "[GoT] Load",
+		prefix: "[GoT] Load: ",
 	}
 
 	if err := loadDirs(log, []string{dir}, values...); err != nil {
@@ -64,7 +64,7 @@ func LoadDirs(t tester, dirs []string, values ...any) {
 
 	log := &logger{
 		t:      t,
-		prefix: "[GoT] Load",
+		prefix: "[GoT] Load: ",
 	}
 
 	if err := loadDirs(log, dirs, values...); err != nil {
@@ -84,7 +84,7 @@ func Assert(t tester, dir string, values ...any) {
 
 	log := &logger{
 		t:      t,
-		prefix: "[GoT] Assert",
+		prefix: "[GoT] Assert: ",
 	}
 
 	if err := assert(log, dir, values...); err != nil {
@@ -98,11 +98,8 @@ func assert(log *logger, dir string, values ...any) error {
 	}
 
 	for _, actual := range values {
-		// vlog := log.WithPrefix(fmt.Sprintf("%T", actual))
-
 		if updateGolden {
 			if err := saveDir(log, dir, actual); err != nil {
-				// return fmt.Errorf("%T: %w", actual, err)
 				return err
 			}
 
@@ -112,7 +109,6 @@ func assert(log *logger, dir string, values ...any) error {
 		expected := reflect.New(reflect.TypeOf(actual).Elem()).Interface()
 
 		if err := loadDirs(log, []string{dir}, expected); err != nil {
-			// return fmt.Errorf("%T: %w", actual, err)
 			return err
 		}
 
@@ -137,7 +133,7 @@ func loadDirs(log *logger, inputs []string, outputs ...any) error {
 		vlog := log.WithPrefix(fmt.Sprintf("%T", output))
 
 		if err := loadDir(vlog, inputs, output); err != nil {
-			return fmt.Errorf("%T: %w", output, err)
+			return err
 		}
 	}
 
@@ -146,7 +142,7 @@ func loadDirs(log *logger, inputs []string, outputs ...any) error {
 
 func loadDir(log *logger, inputs []string, output any) error {
 	if k := reflect.TypeOf(output).Kind(); k != reflect.Ptr {
-		return fmt.Errorf("output must be a pointer, instead got %s", k)
+		return fmt.Errorf("output must be a pointer, but got %s", k)
 	}
 
 	typ := reflect.TypeOf(output).Elem()
@@ -158,7 +154,7 @@ func loadDir(log *logger, inputs []string, output any) error {
 
 		tags, err := structtag.Parse(string(field.Tag))
 		if err != nil {
-			return fmt.Errorf("field %s: failed to parse struct tags: %w", field.Name, err)
+			return fmt.Errorf("%T.%s: failed to parse struct tags: %w", output, field.Name, err)
 		}
 
 		tag, err := tags.Get(tagName)
@@ -170,7 +166,7 @@ func loadDir(log *logger, inputs []string, output any) error {
 
 		for _, input := range inputs {
 			if err := loadDirInput(log, input, tag, field, value); err != nil {
-				return fmt.Errorf("field %s: %w", field.Name, err)
+				return fmt.Errorf("%T.%s: %w", output, field.Name, err)
 			}
 		}
 	}
@@ -184,7 +180,7 @@ func loadDirInput(log *logger, input string, tag *structtag.Tag, field reflect.S
 	if isMap(field.Type) && tag.HasOption("explode") {
 		matches, err := filepath.Glob(file)
 		if err != nil {
-			return fmt.Errorf("field %s: failed to list files %s: %w", field.Name, file, err)
+			return fmt.Errorf("%s: failed to list files %s: %w", field.Name, file, err)
 		}
 
 		m := reflect.MakeMap(field.Type)
@@ -192,14 +188,14 @@ func loadDirInput(log *logger, input string, tag *structtag.Tag, field reflect.S
 		for _, match := range matches {
 			rel, err := filepath.Rel(input, match)
 			if err != nil {
-				return fmt.Errorf("field %s: failed to resolve file %s: %w", field.Name, match, err)
+				return fmt.Errorf("%s: failed to resolve file %s: %w", field.Name, match, err)
 			}
 
 			key := reflect.ValueOf(rel)
 			val := reflect.New(m.Type().Elem()).Elem()
 
-			if err := loadFile(log.WithPrefix("field "+field.Name), match, val); err != nil {
-				return fmt.Errorf("field %s: %w", field.Name, err)
+			if err := loadFile(log.WithPrefix("."+field.Name), match, val); err != nil {
+				return fmt.Errorf("%s: %w", field.Name, err)
 			}
 
 			m.SetMapIndex(key, val)
@@ -212,7 +208,7 @@ func loadDirInput(log *logger, input string, tag *structtag.Tag, field reflect.S
 		return nil
 	}
 
-	if err := loadFile(log.WithPrefix("field "+field.Name), file, value); err != nil {
+	if err := loadFile(log.WithPrefix("."+field.Name), file, value); err != nil {
 		return err
 	}
 
@@ -277,7 +273,7 @@ func saveDir(log *logger, dir string, input any) error {
 
 		tags, err := structtag.Parse(string(field.Tag))
 		if err != nil {
-			return fmt.Errorf("field %s: failed to parse struct tags: %w", field.Name, err)
+			return fmt.Errorf("%T.%s: failed to parse struct tags: %w", input, field.Name, err)
 		}
 
 		tag, err := tags.Get(tagName)
@@ -287,8 +283,8 @@ func saveDir(log *logger, dir string, input any) error {
 			continue
 		}
 
-		if err := saveDirField(log.WithPrefix("field "+field.Name), dir, tag, field, value); err != nil {
-			return fmt.Errorf("field %s error: %w", field.Name, err)
+		if err := saveDirField(log.WithPrefix("."+field.Name), dir, tag, field, value); err != nil {
+			return fmt.Errorf("%T.%s error: %w", input, field.Name, err)
 		}
 	}
 
