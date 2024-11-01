@@ -1,4 +1,12 @@
 
+v2.0.0 / 2024-10-31
+===================
+
+  * chore: prepare for v2 release
+  * chore: update dependencies
+  * refactor(suite): use TestCase.Assert helper for consistency with with Load
+  * BREAKING CHANGE: improve logging (#9)
+
 v1.6.0 / 2024-10-01
 ===================
 
