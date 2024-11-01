@@ -1,8 +1,10 @@
 linters:
   enable-all: true
   disable:
+    - copyloopvar
     - depguard
     - err113
+    - execinquery
     - exhaustruct
     - funlen
     - gochecknoglobals
@@ -11,7 +13,9 @@ linters:
     - gofumpt
     - gomnd
     - inamedparam
+    - intrange
     - ireturn
+    - lll
     - maintidx
     - mnd
     - nestif
@@ -19,6 +23,7 @@ linters:
     - nlreturn
     - paralleltest
     - revive
+    - tagalign
     - testpackage
     - tparallel
     - varnamelen
@@ -30,3 +35,11 @@ linters-settings:
     excludes:
       # 0644 permissions on created files seem reasonable for this use-case
       - G306
+
+  govet:
+    enable-all: true
+    disable:
+      # fixing this is low-priority for this library
+      - fieldalignment
+      # we test invalid struct tags intentionally
+      - structtag

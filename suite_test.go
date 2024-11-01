@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,11 +24,7 @@ func TestRunTestSuite(t *testing.T) {
 
 func TestTestSuite(t *testing.T) {
 	t.Run("single case", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
@@ -44,7 +39,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 
 				require.EqualValues(t, "hello world", test.Input)
 			},
@@ -58,14 +53,17 @@ func TestTestSuite(t *testing.T) {
 				Dir:  "testdata/suite/single-case/test-case-1",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/single-case/test-case-1/input.txt" as string (size 11)`,
+			},
+		}, mt)
 	})
 
 	t.Run("multiple cases", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
@@ -80,7 +78,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 
 				require.EqualValues(t, "hello world", test.Input)
 			},
@@ -102,14 +100,19 @@ func TestTestSuite(t *testing.T) {
 				Dir:  "testdata/suite/multiple-cases/test-case-3",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/multiple-cases/test-case-1/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/multiple-cases/test-case-2/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/multiple-cases/test-case-3/input.txt" as string (size 11)`,
+			},
+		}, mt)
 	})
 
 	t.Run("skip", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
@@ -124,7 +127,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 
 				require.EqualValues(t, "hello world", test.Input)
 			},
@@ -142,14 +145,18 @@ func TestTestSuite(t *testing.T) {
 				Dir:  "testdata/suite/skip/test-case-3",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/skip/test-case-1/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/skip/test-case-3/input.txt" as string (size 11)`,
+			},
+		}, mt)
 	})
 
 	t.Run("only", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
@@ -164,7 +171,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 
 				require.EqualValues(t, "hello world", test.Input)
 			},
@@ -179,14 +186,17 @@ func TestTestSuite(t *testing.T) {
 				Dir:  "testdata/suite/only/test-case-2.only",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/only/test-case-2.only/input.txt" as string (size 11)`,
+			},
+		}, mt)
 	})
 
 	t.Run("shared dir", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
@@ -202,7 +212,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 
 				switch tc.Name {
 				case "test-case-1":
@@ -236,14 +246,22 @@ func TestTestSuite(t *testing.T) {
 				SharedDir: "testdata/suite/shared-dir/common/test-case-3",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/shared-dir/common/test-case-1/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/shared-dir/cases/test-case-1/input.txt" as string (size 8)`,
+				`[GoT] Load: *got.Test.Input: skipped: file "testdata/suite/shared-dir/common/test-case-2/input.txt" not found`,
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/shared-dir/cases/test-case-2/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/shared-dir/common/test-case-3/input.txt" as string (size 11)`,
+				`[GoT] Load: *got.Test.Input: skipped: file "testdata/suite/shared-dir/cases/test-case-3/input.txt" not found`,
+			},
+		}, mt)
 	})
 
 	t.Run("shared dir with only", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
@@ -260,7 +278,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 			},
 		}
 
@@ -274,14 +292,20 @@ func TestTestSuite(t *testing.T) {
 				Only:      true,
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test.Input: skipped: file "testdata/suite/shared-dir-only/common/test-case-2/input.txt" not found`,
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/shared-dir-only/cases/test-case-2.only/input.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test.Expected: loaded file "testdata/suite/shared-dir-only/common/test-case-2/expected.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test.Expected: skipped: file "testdata/suite/shared-dir-only/cases/test-case-2.only/expected.txt" not found`,
+			},
+		}, mt)
 	})
 
 	t.Run("shared dir with skip", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-
-		mockT := NewMockT(ctrl)
-		mockT.EXPECT().Helper().AnyTimes()
-
+		var mt mockT
 		var cases []TestCase
 
 		suite := TestSuite{
@@ -298,7 +322,7 @@ func TestTestSuite(t *testing.T) {
 				}
 
 				var test Test
-				tc.Load(mockT, &test)
+				tc.Load(&mt, &test)
 			},
 		}
 
@@ -316,5 +340,19 @@ func TestTestSuite(t *testing.T) {
 				SharedDir: "testdata/suite/shared-dir-skip/common/test-case-3",
 			},
 		}, cases)
+
+		require.EqualValues(t, mockT{
+			helper: true,
+			logs: []string{
+				`[GoT] Load: *got.Test.Input: skipped: file "testdata/suite/shared-dir-skip/common/test-case-1/input.txt" not found`,
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/shared-dir-skip/cases/test-case-1/input.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test.Expected: loaded file "testdata/suite/shared-dir-skip/common/test-case-1/expected.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test.Expected: skipped: file "testdata/suite/shared-dir-skip/cases/test-case-1/expected.txt" not found`,
+				`[GoT] Load: *got.Test.Input: skipped: file "testdata/suite/shared-dir-skip/common/test-case-3/input.txt" not found`,
+				`[GoT] Load: *got.Test.Input: loaded file "testdata/suite/shared-dir-skip/cases/test-case-3/input.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test.Expected: loaded file "testdata/suite/shared-dir-skip/common/test-case-3/expected.txt" as string (size 1)`,
+				`[GoT] Load: *got.Test.Expected: skipped: file "testdata/suite/shared-dir-skip/cases/test-case-3/expected.txt" not found`,
+			},
+		}, mt)
 	})
 }

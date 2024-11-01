@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
+	"strconv"
 
 	"github.com/dominicbarnes/got/codec"
 	"github.com/fatih/structtag"
@@ -42,22 +44,32 @@ const tagName = "testdata"
 // When enabled, the struct tag name is treated as a glob pattern. The map is
 // populated with a key corresponding to a relative filepath while the value can
 // be any of the types described above.
-func Load(t T, dir string, values ...any) {
+func Load(t tester, dir string, values ...any) {
 	t.Helper()
 
-	if err := loadDirs([]string{dir}, values...); err != nil {
-		t.Fatal(err.Error())
+	log := &logger{
+		t:      t,
+		prefix: "[GoT] Load: ",
+	}
+
+	if err := loadDirs(log, []string{dir}, values...); err != nil {
+		t.Fatalf("[GoT] Load: %s", err.Error())
 	}
 }
 
 // LoadDirs is the same as Load but accepts multiple input directories, which
 // can be used to set up test cases from a common/shared location while allowing
 // an individual test-case to include it's own specific configuration.
-func LoadDirs(t T, dirs []string, values ...any) {
+func LoadDirs(t tester, dirs []string, values ...any) {
 	t.Helper()
 
-	if err := loadDirs(dirs, values...); err != nil {
-		t.Fatal(err.Error())
+	log := &logger{
+		t:      t,
+		prefix: "[GoT] Load: ",
+	}
+
+	if err := loadDirs(log, dirs, values...); err != nil {
+		t.Fatalf("[GoT] LoadDirs: %s", err.Error())
 	}
 }
 
@@ -68,22 +80,27 @@ func LoadDirs(t T, dirs []string, values ...any) {
 // When the "test.update-golden" flag is provided, the contents of each value
 // struct will be persisted to disk instead. This allows any test to easily
 // update their "golden files" and also do the assertion transparently.
-func Assert(t T, dir string, values ...any) {
+func Assert(t tester, dir string, values ...any) {
 	t.Helper()
 
-	if err := assert(dir, values...); err != nil {
-		t.Fatal(err.Error())
+	log := &logger{
+		t:      t,
+		prefix: "[GoT] Assert: ",
+	}
+
+	if err := assert(log, dir, values...); err != nil {
+		t.Fatalf("[GoT] Assert: %s", err.Error())
 	}
 }
 
-func assert(dir string, values ...any) error {
+func assert(log *logger, dir string, values ...any) error {
 	if len(values) == 0 {
 		return errors.New("at least 1 value required")
 	}
 
 	for _, actual := range values {
 		if updateGolden {
-			if err := saveDir(dir, actual); err != nil {
+			if err := saveDir(log, dir, actual); err != nil {
 				return err
 			}
 
@@ -92,25 +109,31 @@ func assert(dir string, values ...any) error {
 
 		expected := reflect.New(reflect.TypeOf(actual).Elem()).Interface()
 
-		if err := loadDirs([]string{dir}, expected); err != nil {
-			return fmt.Errorf("%T: %w", actual, err)
+		if err := loadDirs(log, []string{dir}, expected); err != nil {
+			return err
 		}
 
 		if !cmp.Equal(expected, actual) {
-			return errors.New(cmp.Diff(expected, actual))
+			return fmt.Errorf("test of %s failed: %s", getTypeName(expected), cmp.Diff(expected, actual))
 		}
 	}
 
 	return nil
 }
 
-func loadDirs(inputs []string, outputs ...any) error {
+func loadDirs(log *logger, inputs []string, outputs ...any) error {
 	if len(outputs) == 0 {
 		return errors.New("at least 1 output required")
 	}
 
 	for _, output := range outputs {
-		if err := loadDir(inputs, output); err != nil {
+		if output == nil {
+			return errors.New("output cannot be nil")
+		}
+
+		vlog := log.WithPrefix(getTypeName(output))
+
+		if err := loadDir(vlog, inputs, output); err != nil {
 			return err
 		}
 	}
@@ -118,13 +141,9 @@ func loadDirs(inputs []string, outputs ...any) error {
 	return nil
 }
 
-func loadDir(inputs []string, output any) error {
-	if output == nil {
-		return errors.New("output cannot be nil")
-	}
-
+func loadDir(log *logger, inputs []string, output any) error {
 	if k := reflect.TypeOf(output).Kind(); k != reflect.Ptr {
-		return fmt.Errorf("output must be a pointer, instead got %s", k)
+		return fmt.Errorf("output must be a pointer, but got %s", k)
 	}
 
 	typ := reflect.TypeOf(output).Elem()
@@ -136,7 +155,7 @@ func loadDir(inputs []string, output any) error {
 
 		tags, err := structtag.Parse(string(field.Tag))
 		if err != nil {
-			return fmt.Errorf("%s: failed to parse struct tags: %w", field.Name, err)
+			return fmt.Errorf("%s.%s: failed to parse struct tags: %w", getTypeName(output), field.Name, err)
 		}
 
 		tag, err := tags.Get(tagName)
@@ -147,8 +166,8 @@ func loadDir(inputs []string, output any) error {
 		}
 
 		for _, input := range inputs {
-			if err := loadDirInput(input, tag, field, value); err != nil {
-				return err
+			if err := loadDirInput(log, input, tag, field, value); err != nil {
+				return fmt.Errorf("%s.%s: %w", getTypeName(output), field.Name, err)
 			}
 		}
 	}
@@ -156,13 +175,13 @@ func loadDir(inputs []string, output any) error {
 	return nil
 }
 
-func loadDirInput(input string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
+func loadDirInput(log *logger, input string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
 	file := filepath.Join(input, tag.Name)
 
 	if isMap(field.Type) && tag.HasOption("explode") {
 		matches, err := filepath.Glob(file)
 		if err != nil {
-			return fmt.Errorf("%s: failed to list files %s: %w", field.Name, file, err)
+			return fmt.Errorf("failed to list files %s: %w", file, err)
 		}
 
 		m := reflect.MakeMap(field.Type)
@@ -170,71 +189,78 @@ func loadDirInput(input string, tag *structtag.Tag, field reflect.StructField, v
 		for _, match := range matches {
 			rel, err := filepath.Rel(input, match)
 			if err != nil {
-				return fmt.Errorf("%s: failed to resolve file %s: %w", field.Name, match, err)
+				return fmt.Errorf("failed to resolve file %s: %w", match, err)
 			}
 
 			key := reflect.ValueOf(rel)
-			value := reflect.New(m.Type().Elem()).Elem()
+			val := reflect.New(m.Type().Elem()).Elem()
+			prefix := "." + field.Name + "[" + strconv.Quote(key.String()) + "]"
 
-			if err := loadFile(match, field, value); err != nil {
-				return err
+			if err := loadFile(log.WithPrefix(prefix), match, val); err != nil {
+				return fmt.Errorf("%s: %w", field.Name, err)
 			}
 
-			m.SetMapIndex(key, value)
+			m.SetMapIndex(key, val)
 		}
 
 		if m.Len() > 0 {
 			value.Set(m)
+		} else {
+			log.WithPrefix("." + field.Name).Log("no matches found")
 		}
 
 		return nil
 	}
 
-	if err := loadFile(file, field, value); err != nil {
+	if err := loadFile(log.WithPrefix("."+field.Name), file, value); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func loadFile(file string, field reflect.StructField, value reflect.Value) error {
+func loadFile(log *logger, file string, value reflect.Value) error {
 	f, err := openTagFile(file)
 	if err != nil {
-		return fmt.Errorf("%s: %w", field.Name, err)
+		return err
 	} else if f == nil {
+		log.Log("skipped: file %q not found", file)
 		return nil
 	}
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return fmt.Errorf("%s: failed to read file %s: %w", field.Name, file, err)
+		return fmt.Errorf("file %q read error: %w", file, err)
 	}
 
 	// raw types
 	if isBytes(value.Type()) {
 		value.SetBytes(data)
+		log.Log("loaded file %q as bytes (size %d)", file, len(data))
 		return nil
 	} else if isString(value.Type()) {
 		value.SetString(string(data))
+		log.Log("loaded file %q as string (size %d)", file, len(data))
 		return nil
 	}
 
 	ext := filepath.Ext(file)
 	codec, err := codec.Get(ext)
 	if err != nil {
-		return fmt.Errorf("%s: failed to get codec for file extension %q", field.Name, ext)
+		return fmt.Errorf("failed to get codec for file extension %q", ext)
 	}
 
 	p := reflect.New(value.Type())
 	p.Elem().Set(value) // preserve any prior values
 	if err := codec.Unmarshal(data, p.Interface()); err != nil {
-		return fmt.Errorf("%s: failed to unmarshal %s: %w", field.Name, file, err)
+		return fmt.Errorf("file %q decode error: %w", file, err)
 	}
 	value.Set(p.Elem()) // overwrite with the updated value
+	log.Log("loaded file %q as %s (size %d)", file, codec.Name(), len(data))
 	return nil
 }
 
-func saveDir(dir string, input any) error {
+func saveDir(log *logger, dir string, input any) error {
 	if input == nil {
 		return errors.New("input cannot be nil")
 	}
@@ -251,7 +277,7 @@ func saveDir(dir string, input any) error {
 
 		tags, err := structtag.Parse(string(field.Tag))
 		if err != nil {
-			return fmt.Errorf("%s: failed to parse struct tags: %w", field.Name, err)
+			return fmt.Errorf("%s.%s: failed to parse struct tags: %w", getTypeName(input), field.Name, err)
 		}
 
 		tag, err := tags.Get(tagName)
@@ -261,24 +287,26 @@ func saveDir(dir string, input any) error {
 			continue
 		}
 
-		if err := saveDirField(dir, tag, field, value); err != nil {
-			return err
+		if err := saveDirField(log.WithPrefix(fmt.Sprintf("%s.%s", getTypeName(input), field.Name)), dir, tag, field, value); err != nil {
+			return fmt.Errorf("%s.%s error: %w", getTypeName(input), field.Name, err)
 		}
 	}
 
 	return nil
 }
 
-func saveDirField(dir string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
+func saveDirField(log *logger, dir string, tag *structtag.Tag, field reflect.StructField, value reflect.Value) error {
 	if isMap(field.Type) && tag.HasOption("explode") {
-		iter := value.MapRange()
+		keys := value.MapKeys()
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i].String() < keys[j].String()
+		})
 
-		for iter.Next() {
-			k := iter.Key()
-			v := iter.Value()
+		for _, k := range keys {
+			v := value.MapIndex(k)
 
 			file := filepath.Join(dir, k.String())
-			if err := saveFile(file, field, v); err != nil {
+			if err := saveFile(log, file, v); err != nil {
 				return err
 			}
 		}
@@ -287,41 +315,45 @@ func saveDirField(dir string, tag *structtag.Tag, field reflect.StructField, val
 	}
 
 	file := filepath.Join(dir, tag.Name)
-	if err := saveFile(file, field, value); err != nil {
+	if err := saveFile(log, file, value); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func saveFile(file string, field reflect.StructField, val reflect.Value) error {
-	data, err := encode(file, field, val)
+func saveFile(log *logger, file string, val reflect.Value) error {
+	data, err := encode(file, val)
 	if err != nil {
-		return fmt.Errorf("%s: failed to encode file %s: %w", field.Name, file, err)
+		return fmt.Errorf("failed to encode file %q: %w", file, err)
 	}
 
 	if len(data) == 0 {
 		if err := os.Remove(file); err != nil {
 			if !os.IsNotExist(err) {
-				return fmt.Errorf("%s: failed to delete file %s: %w", field.Name, file, err)
+				return fmt.Errorf("failed to delete file %s: %w", file, err)
 			}
 		}
+
+		log.Log("removed file %q: empty", file)
 	} else {
 		dir := filepath.Dir(file)
 
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("%s: failed to create dir %s: %w", field.Name, dir, err)
+			return fmt.Errorf("failed to create dir %s: %w", dir, err)
 		}
 
 		if err := os.WriteFile(file, data, 0644); err != nil {
-			return fmt.Errorf("%s: failed to write file %s: %w", field.Name, file, err)
+			return fmt.Errorf("failed to write file %s: %w", file, err)
 		}
+
+		log.Log("saved file %q (size %d)", file, len(data))
 	}
 
 	return nil
 }
 
-func encode(file string, field reflect.StructField, val reflect.Value) ([]byte, error) {
+func encode(file string, val reflect.Value) ([]byte, error) {
 	switch {
 	case val.IsZero():
 		return nil, nil
@@ -334,7 +366,7 @@ func encode(file string, field reflect.StructField, val reflect.Value) ([]byte, 
 	ext := filepath.Ext(file)
 	codec, err := codec.Get(ext)
 	if err != nil {
-		return nil, fmt.Errorf("%s: failed to get codec for file extension %q", field.Name, ext)
+		return nil, fmt.Errorf("failed to get codec for file extension %q", ext)
 	}
 	return codec.Marshal(val.Interface())
 }
@@ -361,4 +393,14 @@ func isBytes(targetType reflect.Type) bool {
 
 func isMap(targetType reflect.Type) bool {
 	return targetType.Kind() == reflect.Map && isString(targetType.Key())
+}
+
+func getTypeName(input any) string {
+	t := reflect.TypeOf(input)
+
+	if t.Kind() == reflect.Ptr && t.Elem().PkgPath() == "" {
+		return "<anonymous>"
+	} else {
+		return t.String()
+	}
 }

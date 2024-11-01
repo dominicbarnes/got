@@ -28,6 +28,7 @@ func Get(ext string) (Codec, error) {
 }
 
 type Codec interface {
+	Name() string
 	Marshal(any) ([]byte, error)
 	Unmarshal([]byte, any) error
 }
