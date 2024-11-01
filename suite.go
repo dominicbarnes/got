@@ -28,7 +28,7 @@ func RunTestSuite[Input any, Output any](t tester, dir string, fn func(t *testin
 
 			output := fn(t, tc, input)
 
-			Assert(t, tc.Dir, &output)
+			tc.Assert(t, &output)
 		},
 	}
 
