@@ -37,7 +37,7 @@ import (
   "strings"
   "testing"
 
-  "github.com/dominicbarnes/got"
+  "github.com/dominicbarnes/got/v2"
 )
 
 // testdata/input.txt
@@ -92,7 +92,7 @@ import (
   "strings"
   "testing"
 
-  "github.com/dominicbarnes/got"
+  "github.com/dominicbarnes/got/v2"
 )
 
 // testdata/input.json
@@ -155,7 +155,7 @@ import (
   "strings"
   "testing"
 
-  "github.com/dominicbarnes/got"
+  "github.com/dominicbarnes/got/v2"
 )
 
 // testdata/input.json
@@ -238,7 +238,7 @@ import (
   "strings"
   "testing"
 
-  "github.com/dominicbarnes/got"
+  "github.com/dominicbarnes/got/v2"
 )
 
 // testdata/hello-world/input.txt
@@ -324,7 +324,7 @@ import (
   "strings"
   "testing"
 
-  "github.com/dominicbarnes/got"
+  "github.com/dominicbarnes/got/v2"
 )
 
 // NOTE: no expected.txt files are defined
@@ -394,7 +394,7 @@ import (
   "strings"
   "testing"
 
-  "github.com/dominicbarnes/got"
+  "github.com/dominicbarnes/got/v2"
 )
 
 // testdata/hello-world/input.txt

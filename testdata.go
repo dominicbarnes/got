@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/dominicbarnes/got/codec"
+	"github.com/dominicbarnes/got/v2/codec"
 	"github.com/fatih/structtag"
 	"github.com/google/go-cmp/cmp"
 )

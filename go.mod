@@ -1,9 +1,8 @@
-module github.com/dominicbarnes/got
+module github.com/dominicbarnes/got/v2
 
 go 1.18
 
 require (
-	github.com/dominicbarnes/got v1.6.0
 	github.com/fatih/structtag v1.2.0
 	github.com/google/go-cmp v0.6.0
 	github.com/stretchr/testify v1.3.0
