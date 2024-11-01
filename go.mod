@@ -3,9 +3,9 @@ module github.com/dominicbarnes/got
 go 1.18
 
 require (
-	github.com/fatih/structtag v1.0.0
-	github.com/golang/mock v1.6.0
-	github.com/google/go-cmp v0.5.9
+	github.com/dominicbarnes/got v1.6.0
+	github.com/fatih/structtag v1.2.0
+	github.com/google/go-cmp v0.6.0
 	github.com/stretchr/testify v1.3.0
 	gopkg.in/yaml.v3 v3.0.1
 )
