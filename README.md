@@ -420,7 +420,7 @@ func TestUppercase(t *testing.T) {
     Output string `testdata:"expected.txt"`
   }
 
-  got.RunTestSuite(t, "testdata", func (t *testing.T, test Test) Expected {
+  got.RunTestSuite(t, "testdata", func (t *testing.T, tc got.TestCase, test Test) Expected {
     // execute the code under test
     actual := Uppercase(test.Input)
 
