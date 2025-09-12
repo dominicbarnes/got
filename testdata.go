@@ -88,12 +88,25 @@ func Assert(t tester, dir string, values ...any) {
 		prefix: "[GoT] Assert: ",
 	}
 
-	if err := assert(log, dir, values...); err != nil {
+	if err := assert(log, dir, nil, values...); err != nil {
 		t.Fatalf("[GoT] Assert: %s", err.Error())
 	}
 }
 
-func assert(log *logger, dir string, values ...any) error {
+func AssertWithOptions(t tester, dir string, options cmp.Options, values ...any) {
+	t.Helper()
+
+	log := &logger{
+		t:      t,
+		prefix: "[GoT] Assert: ",
+	}
+
+	if err := assert(log, dir, options, values...); err != nil {
+		t.Fatalf("[GoT] Assert: %s", err.Error())
+	}
+}
+
+func assert(log *logger, dir string, opts cmp.Options, values ...any) error {
 	if len(values) == 0 {
 		return errors.New("at least 1 value required")
 	}
@@ -113,8 +126,8 @@ func assert(log *logger, dir string, values ...any) error {
 			return err
 		}
 
-		if !cmp.Equal(expected, actual) {
-			return fmt.Errorf("test of %s failed: %s", getTypeName(expected), cmp.Diff(expected, actual))
+		if !cmp.Equal(expected, actual, opts...) {
+			return fmt.Errorf("test of %s failed: %s", getTypeName(expected), cmp.Diff(expected, actual, opts...))
 		}
 	}
 
