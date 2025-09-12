@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 // RunTestSuite is a helper for running a common test suite. The Input type
@@ -69,6 +71,11 @@ func (c TestCase) Load(t tester, values ...any) {
 // Assert is a helper for checking and/or saving testdata for this test case.
 func (c TestCase) Assert(t tester, values ...any) {
 	Assert(t, c.Dir, values...)
+}
+
+// AssertWithOptions is like Assert, but allows passing custom cmp.Options.
+func (c TestCase) AssertWithOptions(t tester, options cmp.Options, values ...any) {
+	AssertWithOptions(t, c.Dir, options, values...)
 }
 
 // TestSuite defines a collection of tests backed by directories/files on disk.
